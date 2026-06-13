@@ -4,7 +4,7 @@ import {
   createCallbackProviderAdapter,
   createStaticCapabilityCatalog,
   ModelRouter,
-} from "@swoosh/router";
+} from "@semafore/router";
 import { exampleCatalog } from "./shared/catalog";
 import { printAttempts, printPlan } from "./shared/print";
 

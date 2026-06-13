@@ -6,7 +6,7 @@ import {
   createRouter,
   defaultCatalog,
   llmJudgePolicy,
-} from "@swoosh/sdk";
+} from "@semafore/sdk";
 
 // A fake module loader standing in for `ai` + the @ai-sdk/* provider packages.
 const fakeLoad = (id: string): Promise<unknown> => {
@@ -22,7 +22,7 @@ const fakeLoad = (id: string): Promise<unknown> => {
   return Promise.reject(new Error(`not installed: ${id}`));
 };
 
-describe("@swoosh/sdk re-exports", () => {
+describe("@semafore/sdk re-exports", () => {
   test("surfaces the whole toolkit from one import", () => {
     expect(typeof createRouter).toBe("function");
     expect(typeof byBenchmark).toBe("function");

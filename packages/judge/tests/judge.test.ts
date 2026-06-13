@@ -4,8 +4,8 @@ import {
   createStaticCapabilityCatalog,
   ModelRouter,
   type ModelCapability,
-} from "@swoosh/router";
-import { llmJudgePolicy } from "@swoosh/judge";
+} from "@semafore/router";
+import { llmJudgePolicy } from "@semafore/judge";
 
 const model = (providerId: string, modelId: string, pricing: number): ModelCapability => ({
   providerId, providerName: providerId, modelId, modelName: modelId,

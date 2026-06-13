@@ -8,7 +8,7 @@ import {
   loadBalance,
   ModelRouter,
   roundRobin,
-} from "@swoosh/router";
+} from "@semafore/router";
 
 // Three image-generation models; replicate and openai are the two cheapest.
 const imageCatalog = createStaticCapabilityCatalog([

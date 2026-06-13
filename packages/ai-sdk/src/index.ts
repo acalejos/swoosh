@@ -1,4 +1,4 @@
-import { createCallbackProviderAdapter, type ProviderAdapter } from "@swoosh/router";
+import { createCallbackProviderAdapter, type ProviderAdapter } from "@semafore/router";
 
 export interface AiSdkProviderOptions {
   readonly providerId: string;

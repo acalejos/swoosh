@@ -1,4 +1,4 @@
-import type { CapabilityOverride } from "@swoosh/router";
+import type { CapabilityOverride } from "@semafore/router";
 
 /**
  * Curated enrichment layered over the models.dev base — the capabilities

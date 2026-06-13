@@ -14,11 +14,11 @@
     "noFallthroughCasesInSwitch": true,
     "types": ["node", "bun"],
     "paths": {
-      "@swoosh/router": ["./packages/model-router/src/index.ts"],
-      "@swoosh/ai-sdk": ["./packages/ai-sdk/src/index.ts"],
-      "@swoosh/capabilities": ["./packages/capabilities/src/index.ts"],
-      "@swoosh/judge": ["./packages/judge/src/index.ts"],
-      "@swoosh/sdk": ["./packages/sdk/src/index.ts"]
+      "@semafore/router": ["./packages/model-router/src/index.ts"],
+      "@semafore/ai-sdk": ["./packages/ai-sdk/src/index.ts"],
+      "@semafore/capabilities": ["./packages/capabilities/src/index.ts"],
+      "@semafore/judge": ["./packages/judge/src/index.ts"],
+      "@semafore/sdk": ["./packages/sdk/src/index.ts"]
     }
   }
 }

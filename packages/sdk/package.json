@@ -1,5 +1,5 @@
 {
-  "name": "@swoosh/sdk",
+  "name": "@semafore/sdk",
   "version": "0.1.0",
   "description": "Batteries-included drop-in for swoosh \u2014 createRouter() with the enriched default catalog and AI-SDK providers auto-wired from your API keys.",
   "license": "Apache-2.0",
@@ -23,10 +23,10 @@
     "build": "tsup src/index.ts --format esm --dts --clean --treeshake"
   },
   "dependencies": {
-    "@swoosh/ai-sdk": "workspace:*",
-    "@swoosh/capabilities": "workspace:*",
-    "@swoosh/judge": "workspace:*",
-    "@swoosh/router": "workspace:*"
+    "@semafore/ai-sdk": "workspace:*",
+    "@semafore/capabilities": "workspace:*",
+    "@semafore/judge": "workspace:*",
+    "@semafore/router": "workspace:*"
   },
   "peerDependencies": {
     "ai": ">=5.0.0",

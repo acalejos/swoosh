@@ -11,7 +11,7 @@
   "scripts": {
     "check:tsc": "tsc --noEmit -p tsconfig.json",
     "test": "bun test packages",
-    "build": "bun run --filter='@swoosh/router' build && bun run --filter='@swoosh/ai-sdk' build && bun run --filter='@swoosh/capabilities' build && bun run --filter='@swoosh/judge' build && bun run --filter='@swoosh/sdk' build"
+    "build": "bun run --filter='@semafore/router' build && bun run --filter='@semafore/ai-sdk' build && bun run --filter='@semafore/capabilities' build && bun run --filter='@semafore/judge' build && bun run --filter='@semafore/sdk' build"
   },
   "devDependencies": {
     "@types/bun": "latest",

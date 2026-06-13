@@ -8,7 +8,7 @@ import {
   filterCapabilityCatalog,
   hasApiKey,
   ModelRouter,
-} from "@swoosh/router";
+} from "@semafore/router";
 import { exampleCatalog } from "./shared/catalog";
 import { printPlan } from "./shared/print";
 

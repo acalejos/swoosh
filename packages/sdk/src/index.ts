@@ -3,20 +3,20 @@ import {
   ModelRouter,
   type ProviderAdapter,
   type RoutingPreference,
-} from "@swoosh/router";
-import { defaultCatalog } from "@swoosh/capabilities";
+} from "@semafore/router";
+import { defaultCatalog } from "@semafore/capabilities";
 import { autoProviders } from "./providers";
 
 // Re-export the whole toolkit so the drop-in is a single import surface.
-export * from "@swoosh/router";
-export * from "@swoosh/judge";
-export { createAiSdkProviderAdapter, type AiSdkProviderOptions } from "@swoosh/ai-sdk";
+export * from "@semafore/router";
+export * from "@semafore/judge";
+export { createAiSdkProviderAdapter, type AiSdkProviderOptions } from "@semafore/ai-sdk";
 export {
   capabilities,
   defaultCatalog,
   defaultOverrides,
   meta as capabilitiesMeta,
-} from "@swoosh/capabilities";
+} from "@semafore/capabilities";
 export {
   autoProviders,
   providerRegistry,
@@ -25,7 +25,7 @@ export {
 } from "./providers";
 
 export interface CreateRouterOptions {
-  /** Capability catalog. Defaults to the bundled, enriched `@swoosh/capabilities` dataset. */
+  /** Capability catalog. Defaults to the bundled, enriched `@semafore/capabilities` dataset. */
   readonly catalog?: CapabilityCatalog;
   /** Provider adapters. Defaults to AI-SDK providers auto-wired from present API keys. */
   readonly providers?: readonly ProviderAdapter[];

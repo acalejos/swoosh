@@ -1,4 +1,4 @@
-import type { ModelCapability } from "@swoosh/router";
+import type { ModelCapability } from "@semafore/router";
 
 // A small fixture catalog used by every example. In a real app you would
 // usually pull this from models.dev via ModelsDevCapabilityCatalog instead.

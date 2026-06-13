@@ -6,7 +6,7 @@ import {
   createStaticCapabilityCatalog,
   ModelRouter,
   type RoutingPolicy,
-} from "@swoosh/router";
+} from "@semafore/router";
 import { exampleCatalog } from "./shared/catalog";
 import { printPlan } from "./shared/print";
 

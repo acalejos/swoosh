@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>swoosh docs — just give me a model</title>
-<meta name="description" content="Developer documentation for swoosh (@swoosh/router): installation, the ModelRouter API, request shape, capability catalogs, routing policies, and provider adapters." />
+<meta name="description" content="Developer documentation for swoosh (@semafore/router): installation, the ModelRouter API, request shape, capability catalogs, routing policies, and provider adapters." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
@@ -206,12 +206,12 @@
     <!-- INSTALL -->
     <section class="doc" id="install">
       <h2><span class="no">01</span> Installation</h2>
-      <div class="note"><b>Just want it to work?</b> <code>npm i @swoosh/sdk ai @ai-sdk/openai</code>, then <code>const router = await createRouter()</code> — the enriched catalog and your key-detected providers, wired for you. The granular packages below are for when you want control over each piece.</div>
+      <div class="note"><b>Just want it to work?</b> <code>npm i @semafore/sdk ai @ai-sdk/openai</code>, then <code>const router = await createRouter()</code> — the enriched catalog and your key-detected providers, wired for you. The granular packages below are for when you want control over each piece.</div>
       <p>The core router has zero runtime dependencies:</p>
       <pre><code><span class="tk-c"># the router engine, catalogs, policies, callback adapter</span>
-npm install @swoosh/router</code></pre>
+npm install @semafore/router</code></pre>
       <p>Add the AI SDK adapter only if you route through the <a class="inline" href="https://sdk.vercel.ai">Vercel AI SDK</a>:</p>
-      <pre><code>npm install @swoosh/ai-sdk ai</code></pre>
+      <pre><code>npm install @semafore/ai-sdk ai</code></pre>
       <div class="note"><b>Requirements.</b> TypeScript 5+, ES2022 target, an environment with <code>fetch</code> (Node 18+, Bun, Deno, or the browser) if you use <code>ModelsDevCapabilityCatalog</code>.</div>
     </section>
 
@@ -222,11 +222,11 @@ npm install @swoosh/router</code></pre>
       <table>
         <thead><tr><th>Package</th><th>Install</th><th>Contents</th></tr></thead>
         <tbody>
-          <tr><td><code>@swoosh/sdk</code></td><td><code>npm i @swoosh/sdk ai @ai-sdk/openai</code></td><td><b>Batteries-included drop-in</b> — <code>createRouter()</code> with the enriched catalog and providers auto-wired from your API keys. Re-exports everything.</td></tr>
-          <tr><td><code>@swoosh/router</code></td><td><code>npm i @swoosh/router</code></td><td>Router engine, capability catalogs, built-in policies, callback adapter. Zero runtime dependencies.</td></tr>
-          <tr><td><code>@swoosh/ai-sdk</code></td><td><code>npm i @swoosh/ai-sdk ai</code></td><td>Vercel AI SDK provider adapter. <code>ai</code> is a peer dependency.</td></tr>
-          <tr><td><code>@swoosh/capabilities</code></td><td><code>npm i @swoosh/capabilities</code></td><td>Curated, enriched model dataset + <code>defaultCatalog()</code> — models.dev plus the features it omits (web_search, latency, quality, benchmarks).</td></tr>
-          <tr><td><code>@swoosh/judge</code></td><td><code>npm i @swoosh/judge</code></td><td>Dynamic policies — classify the prompt with an LLM judge (structured output) and route by the verdict.</td></tr>
+          <tr><td><code>@semafore/sdk</code></td><td><code>npm i @semafore/sdk ai @ai-sdk/openai</code></td><td><b>Batteries-included drop-in</b> — <code>createRouter()</code> with the enriched catalog and providers auto-wired from your API keys. Re-exports everything.</td></tr>
+          <tr><td><code>@semafore/router</code></td><td><code>npm i @semafore/router</code></td><td>Router engine, capability catalogs, built-in policies, callback adapter. Zero runtime dependencies.</td></tr>
+          <tr><td><code>@semafore/ai-sdk</code></td><td><code>npm i @semafore/ai-sdk ai</code></td><td>Vercel AI SDK provider adapter. <code>ai</code> is a peer dependency.</td></tr>
+          <tr><td><code>@semafore/capabilities</code></td><td><code>npm i @semafore/capabilities</code></td><td>Curated, enriched model dataset + <code>defaultCatalog()</code> — models.dev plus the features it omits (web_search, latency, quality, benchmarks).</td></tr>
+          <tr><td><code>@semafore/judge</code></td><td><code>npm i @semafore/judge</code></td><td>Dynamic policies — classify the prompt with an LLM judge (structured output) and route by the verdict.</td></tr>
         </tbody>
       </table>
       <p>The extension points are <em>types</em>, not packages: a policy is a plain function, and catalogs/providers are interfaces — so you can extend swoosh in your own code without any extra package.</p>
@@ -236,8 +236,8 @@ npm install @swoosh/router</code></pre>
     <section class="doc" id="quickstart">
       <h2><span class="no">03</span> Quick start</h2>
       <p>Construct a router with a catalog and one or more provider adapters, then route a task. Every method returns a Promise — just <code>await</code> it.</p>
-      <pre><code><span class="tk-k">import</span> { ModelRouter, ModelsDevCapabilityCatalog } <span class="tk-k">from</span> <span class="tk-s">"@swoosh/router"</span>;
-<span class="tk-k">import</span> { createAiSdkProviderAdapter } <span class="tk-k">from</span> <span class="tk-s">"@swoosh/ai-sdk"</span>;
+      <pre><code><span class="tk-k">import</span> { ModelRouter, ModelsDevCapabilityCatalog } <span class="tk-k">from</span> <span class="tk-s">"@semafore/router"</span>;
+<span class="tk-k">import</span> { createAiSdkProviderAdapter } <span class="tk-k">from</span> <span class="tk-s">"@semafore/ai-sdk"</span>;
 <span class="tk-k">import</span> { google } <span class="tk-k">from</span> <span class="tk-s">"@ai-sdk/google"</span>;
 <span class="tk-k">import</span> { generateObject } <span class="tk-k">from</span> <span class="tk-s">"ai"</span>;
 
@@ -391,7 +391,7 @@ npm install @swoosh/router</code></pre>
 
       <h3><code>createCapabilityCatalog(load)</code> — bring your own DB</h3>
       <p>Wraps any sync or async loader (a database query, an internal API, a cached file) into a catalog. The router never assumes models.dev — point it at your own table. Loader failures become a <code>ModelRouterError</code>.</p>
-      <pre><code><span class="tk-k">import</span> { createCapabilityCatalog, normalizeModelsDevCatalog } <span class="tk-k">from</span> <span class="tk-s">"@swoosh/router"</span>;
+      <pre><code><span class="tk-k">import</span> { createCapabilityCatalog, normalizeModelsDevCatalog } <span class="tk-k">from</span> <span class="tk-s">"@semafore/router"</span>;
 
 <span class="tk-c">// Map your own rows onto the ModelCapability "columns".</span>
 <span class="tk-k">const</span> catalog = createCapabilityCatalog(<span class="tk-k">async</span> () =&gt; {
@@ -410,9 +410,9 @@ npm install @swoosh/router</code></pre>
 <span class="tk-k">const</span> fromCache = createCapabilityCatalog(() =&gt; normalizeModelsDevCatalog(cachedJson));</code></pre>
       <div class="note"><b>Augmenting features.</b> models.dev flags <code>structured_output</code>, <code>tools</code>, <code>reasoning</code>, and <code>attachments</code>. For a feature it doesn't expose yet — e.g. <code>web_search</code> — add it in your loader's <code>.map()</code>: <code>features: WEB_SEARCH_MODELS.has(m.modelId) ? [...m.features, "web_search"] : m.features</code>. <code>mergeCapabilities(base, overrides)</code> does this for you, keyed by <code>providerId/modelId</code> (features unioned; <code>limits</code>/<code>pricing</code> shallow-merged; other fields replaced).</div>
 
-      <h3>Prebuilt dataset — <code>@swoosh/capabilities</code></h3>
-      <p>Don't want to wire models.dev yourself? <a class="inline" href="#packages"><code>@swoosh/capabilities</code></a> ships a curated, bundled snapshot — models.dev narrowed to major providers and enriched with <code>web_search</code>, latency classes, and quality scores (which models.dev omits) — behind a one-call catalog. Offline, no keys, refreshed by CI.</p>
-      <pre><code><span class="tk-k">import</span> { defaultCatalog } <span class="tk-k">from</span> <span class="tk-s">"@swoosh/capabilities"</span>;
+      <h3>Prebuilt dataset — <code>@semafore/capabilities</code></h3>
+      <p>Don't want to wire models.dev yourself? <a class="inline" href="#packages"><code>@semafore/capabilities</code></a> ships a curated, bundled snapshot — models.dev narrowed to major providers and enriched with <code>web_search</code>, latency classes, and quality scores (which models.dev omits) — behind a one-call catalog. Offline, no keys, refreshed by CI.</p>
+      <pre><code><span class="tk-k">import</span> { defaultCatalog } <span class="tk-k">from</span> <span class="tk-s">"@semafore/capabilities"</span>;
 
 <span class="tk-k">const</span> router = <span class="tk-k">new</span> ModelRouter({ catalog: defaultCatalog(), providers });</code></pre>
 
@@ -446,7 +446,7 @@ npm install @swoosh/router</code></pre>
 
       <h3>1 · Gate providers by API key <span class="pill">provider granularity</span></h3>
       <p>An adapter's <code>isAvailable()</code> decides whether a whole provider is usable. A catalog model whose provider has no available adapter is rejected with <code>No available provider adapter.</code> The <code>hasApiKey</code> helper checks the conventional environment variable(s) for a provider — <code>OPENAI_API_KEY</code>, <code>ANTHROPIC_API_KEY</code>, <code>GEMINI_API_KEY</code>, and so on — so a provider is only used when its key is actually present.</p>
-      <pre><code><span class="tk-k">import</span> { createCallbackProviderAdapter, hasApiKey } <span class="tk-k">from</span> <span class="tk-s">"@swoosh/router"</span>;
+      <pre><code><span class="tk-k">import</span> { createCallbackProviderAdapter, hasApiKey } <span class="tk-k">from</span> <span class="tk-s">"@semafore/router"</span>;
 
 createCallbackProviderAdapter({
   providerId: <span class="tk-s">"openai"</span>,
@@ -457,7 +457,7 @@ createCallbackProviderAdapter({
 
       <h3>2 · Allowlist specific models <span class="pill">recommended</span></h3>
       <p>Wrap a broad catalog with <code>filterCapabilityCatalog</code> and an allowlist of <code>"providerId/modelId"</code> keys (a bare <code>"modelId"</code> matches across providers). models.dev supplies pricing, limits, and features; you only name the ids you have.</p>
-      <pre><code><span class="tk-k">import</span> { ModelsDevCapabilityCatalog, filterCapabilityCatalog } <span class="tk-k">from</span> <span class="tk-s">"@swoosh/router"</span>;
+      <pre><code><span class="tk-k">import</span> { ModelsDevCapabilityCatalog, filterCapabilityCatalog } <span class="tk-k">from</span> <span class="tk-s">"@semafore/router"</span>;
 
 <span class="tk-k">const</span> catalog = filterCapabilityCatalog(<span class="tk-k">new</span> ModelsDevCapabilityCatalog(), [
   <span class="tk-s">"openai/gpt-4o"</span>,
@@ -485,7 +485,7 @@ createCallbackProviderAdapter({
       <div class="note"><b>They compose.</b> Filter the catalog to your licensed models <em>and</em> gate providers by key — a model must survive both to be routed. Anything excluded shows up in <code>plan.rejected</code> with a reason, so access decisions are auditable.</div>
 
       <h3>Bring-your-own-keys apps</h3>
-      <p>Because providers are chosen from the keys that are present, BYO-keys apps need no provider-specific branching. With <a class="inline" href="#packages"><code>@swoosh/sdk</code></a>, pass each user's keys as <code>env</code> and the router wires whatever they brought — the same call for everyone:</p>
+      <p>Because providers are chosen from the keys that are present, BYO-keys apps need no provider-specific branching. With <a class="inline" href="#packages"><code>@semafore/sdk</code></a>, pass each user's keys as <code>env</code> and the router wires whatever they brought — the same call for everyone:</p>
       <pre><code><span class="tk-k">const</span> router = <span class="tk-k">await</span> createRouter({
   env: { OPENAI_API_KEY: user.keys.openai, OPENROUTER_API_KEY: user.keys.openrouter },
 });</code></pre>
@@ -508,7 +508,7 @@ createCallbackProviderAdapter({
       <p>Preferred providers (via <code>preferredProviderIds</code>) sort ahead within any built-in.</p>
       <h3>Custom policies</h3>
       <p>A <code>RoutingPolicy</code> is just a function from ranked candidates to ranked candidates. Filter, reorder, or both:</p>
-      <pre><code><span class="tk-k">import type</span> { RoutingPolicy } <span class="tk-k">from</span> <span class="tk-s">"@swoosh/router"</span>;
+      <pre><code><span class="tk-k">import type</span> { RoutingPolicy } <span class="tk-k">from</span> <span class="tk-s">"@semafore/router"</span>;
 
 <span class="tk-k">const</span> euOnlyThenCheapest: <span class="tk-t">RoutingPolicy</span> = ({ candidates }) =&gt;
   candidates
@@ -520,13 +520,13 @@ router.plan({ task: <span class="tk-s">"redline"</span>, input, inputModalities:
 
       <h3>Load balancing &amp; key rotation <span class="pill">rotation</span></h3>
       <p><code>loadBalance</code> spreads requests across the top-N candidates instead of always picking #1 — "cheapest, but cycle through the two cheapest providers." It wraps a base preference or policy, ranks, then round-robins which of the top <code>across</code> is selected each call; the rest stay as ordered fallbacks, so failover still works. It's stateful (holds a cursor) — build it once and reuse it.</p>
-      <pre><code><span class="tk-k">import</span> { loadBalance } <span class="tk-k">from</span> <span class="tk-s">"@swoosh/router"</span>;
+      <pre><code><span class="tk-k">import</span> { loadBalance } <span class="tk-k">from</span> <span class="tk-s">"@semafore/router"</span>;
 
 <span class="tk-k">const</span> balanced = loadBalance(<span class="tk-s">"cheapest"</span>, { across: <span class="tk-n">2</span> });  <span class="tk-c">// or strategy: "random"</span>
 <span class="tk-k">await</span> router.run({ ...request, preference: balanced });  <span class="tk-c">// 1st of the two cheapest</span>
 <span class="tk-k">await</span> router.run({ ...request, preference: balanced });  <span class="tk-c">// 2nd of the two cheapest</span></code></pre>
       <p>To rotate <em>API keys within a provider</em> (spread rate limits across keys), use <code>roundRobin</code> inside the adapter — it returns the next item each call:</p>
-      <pre><code><span class="tk-k">import</span> { roundRobin, createCallbackProviderAdapter } <span class="tk-k">from</span> <span class="tk-s">"@swoosh/router"</span>;
+      <pre><code><span class="tk-k">import</span> { roundRobin, createCallbackProviderAdapter } <span class="tk-k">from</span> <span class="tk-s">"@semafore/router"</span>;
 
 <span class="tk-k">const</span> nextKey = roundRobin([process.env.OPENAI_KEY_A!, process.env.OPENAI_KEY_B!]);
 createCallbackProviderAdapter({
@@ -535,16 +535,16 @@ createCallbackProviderAdapter({
 });</code></pre>
 
       <h3>Route by benchmark <span class="pill">byBenchmark</span></h3>
-      <p>Rank on benchmark scores (see the <code>benchmarks</code> field on <code>ModelCapability</code>, populated by <a class="inline" href="#packages"><code>@swoosh/capabilities</code></a>). Pass a benchmark name, or a function that blends several so you decide what "best" means. Candidates with no score sort last, and <code>minimum</code> drops them.</p>
-      <pre><code><span class="tk-k">import</span> { byBenchmark } <span class="tk-k">from</span> <span class="tk-s">"@swoosh/router"</span>;
+      <p>Rank on benchmark scores (see the <code>benchmarks</code> field on <code>ModelCapability</code>, populated by <a class="inline" href="#packages"><code>@semafore/capabilities</code></a>). Pass a benchmark name, or a function that blends several so you decide what "best" means. Candidates with no score sort last, and <code>minimum</code> drops them.</p>
+      <pre><code><span class="tk-k">import</span> { byBenchmark } <span class="tk-k">from</span> <span class="tk-s">"@semafore/router"</span>;
 
 preference: byBenchmark(<span class="tk-s">"swe_bench"</span>, { minimum: <span class="tk-n">0.5</span> }),
 preference: byBenchmark((m) =&gt; <span class="tk-n">0.7</span> * (m.benchmarks?.swe_bench ?? <span class="tk-n">0</span>) + <span class="tk-n">0.3</span> * (m.benchmarks?.gpqa ?? <span class="tk-n">0</span>)),</code></pre>
 
       <h3>Dynamic policies &amp; LLM judges <span class="pill">async</span></h3>
-      <p>Policies are async-capable, so a policy can <em>await</em> an LLM call before choosing. <a class="inline" href="#packages"><code>@swoosh/judge</code></a> classifies each prompt with your structured-output judge and routes by the verdict — cheap models for chat, top models for coding, search models for research. The verdict comes from your LLM; the result is still an ordinary ranked list, so failover and everything else work unchanged. Verdicts are cached by prompt so identical requests aren't re-judged.</p>
-      <pre><code><span class="tk-k">import</span> { llmJudgePolicy } <span class="tk-k">from</span> <span class="tk-s">"@swoosh/judge"</span>;
-<span class="tk-k">import</span> { byBenchmark } <span class="tk-k">from</span> <span class="tk-s">"@swoosh/router"</span>;
+      <p>Policies are async-capable, so a policy can <em>await</em> an LLM call before choosing. <a class="inline" href="#packages"><code>@semafore/judge</code></a> classifies each prompt with your structured-output judge and routes by the verdict — cheap models for chat, top models for coding, search models for research. The verdict comes from your LLM; the result is still an ordinary ranked list, so failover and everything else work unchanged. Verdicts are cached by prompt so identical requests aren't re-judged.</p>
+      <pre><code><span class="tk-k">import</span> { llmJudgePolicy } <span class="tk-k">from</span> <span class="tk-s">"@semafore/judge"</span>;
+<span class="tk-k">import</span> { byBenchmark } <span class="tk-k">from</span> <span class="tk-s">"@semafore/router"</span>;
 
 <span class="tk-k">const</span> smart = llmJudgePolicy({
   classify: ({ prompt }) =&gt; judge.generateObject({ schema: TaskKind, prompt }), <span class="tk-c">// your LLM</span>
@@ -561,18 +561,18 @@ preference: byBenchmark((m) =&gt; <span class="tk-n">0.7</span> * (m.benchmarks?
     <section class="doc" id="adapters">
       <h2><span class="no">12</span> Provider adapters</h2>
       <p>An adapter implements <code>generateObject</code> and/or <code>generateText</code> for one <code>providerId</code>. The router resolves the chosen <code>ModelCapability</code> to an adapter by id.</p>
-      <h3><code>createCallbackProviderAdapter(options)</code> <span class="pill">@swoosh/router</span></h3>
+      <h3><code>createCallbackProviderAdapter(options)</code> <span class="pill">@semafore/router</span></h3>
       <p>Wraps plain async/sync callbacks. Provide either method; an optional <code>isAvailable()</code> gates the provider.</p>
-      <pre><code><span class="tk-k">import</span> { createCallbackProviderAdapter } <span class="tk-k">from</span> <span class="tk-s">"@swoosh/router"</span>;
+      <pre><code><span class="tk-k">import</span> { createCallbackProviderAdapter } <span class="tk-k">from</span> <span class="tk-s">"@semafore/router"</span>;
 
 <span class="tk-k">const</span> anthropic = createCallbackProviderAdapter({
   providerId: <span class="tk-s">"anthropic"</span>,
   isAvailable: () =&gt; <span class="tk-t">Boolean</span>(process.env.ANTHROPIC_API_KEY),
   generateText: <span class="tk-k">async</span> ({ model, prompt }) =&gt; callClaude(model.modelId, prompt),
 });</code></pre>
-      <h3><code>createAiSdkProviderAdapter(options)</code> <span class="pill">@swoosh/ai-sdk</span></h3>
+      <h3><code>createAiSdkProviderAdapter(options)</code> <span class="pill">@semafore/ai-sdk</span></h3>
       <p>Bridges the Vercel AI SDK. <code>models</code> maps each catalog <code>modelId</code> to its AI SDK model instance; the adapter resolves and calls it, unwrapping the SDK's <code>{ object }</code> result.</p>
-      <pre><code><span class="tk-k">import</span> { createAiSdkProviderAdapter } <span class="tk-k">from</span> <span class="tk-s">"@swoosh/ai-sdk"</span>;
+      <pre><code><span class="tk-k">import</span> { createAiSdkProviderAdapter } <span class="tk-k">from</span> <span class="tk-s">"@semafore/ai-sdk"</span>;
 <span class="tk-k">import</span> { openai } <span class="tk-k">from</span> <span class="tk-s">"@ai-sdk/openai"</span>;
 <span class="tk-k">import</span> { generateObject } <span class="tk-k">from</span> <span class="tk-s">"ai"</span>;
 
@@ -608,7 +608,7 @@ createAiSdkProviderAdapter({
     <section class="doc" id="errors">
       <h2><span class="no">14</span> Errors</h2>
       <p>Failures reject the returned Promise with a <code>ModelRouterError</code>. Handle them with <code>try</code>/<code>catch</code> (or <code>.catch()</code>).</p>
-      <pre><code><span class="tk-k">import</span> { ModelRouterError } <span class="tk-k">from</span> <span class="tk-s">"@swoosh/router"</span>;
+      <pre><code><span class="tk-k">import</span> { ModelRouterError } <span class="tk-k">from</span> <span class="tk-s">"@semafore/router"</span>;
 
 <span class="tk-k">try</span> {
   <span class="tk-k">const</span> result = <span class="tk-k">await</span> router.run(request);

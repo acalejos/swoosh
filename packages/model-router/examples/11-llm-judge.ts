@@ -8,8 +8,8 @@ import {
   createStaticCapabilityCatalog,
   type ModelCapability,
   ModelRouter,
-} from "@swoosh/router";
-import { llmJudgePolicy } from "@swoosh/judge";
+} from "@semafore/router";
+import { llmJudgePolicy } from "@semafore/judge";
 import { printPlan } from "./shared/print";
 
 const model = (providerId: string, modelId: string, extra: Partial<ModelCapability>): ModelCapability => ({

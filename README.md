@@ -30,11 +30,11 @@ and outages. swoosh inverts that:
 ## Quick start
 
 ```sh
-npm install @swoosh/sdk ai @ai-sdk/openai
+npm install @semafore/sdk ai @ai-sdk/openai
 ```
 
 ```ts
-import { createRouter } from "@swoosh/sdk";
+import { createRouter } from "@semafore/sdk";
 
 const router = await createRouter(); // enriched catalog + providers from your keys
 
@@ -56,11 +56,11 @@ Compose the packages directly.
 
 | Package | Install | What |
 | --- | --- | --- |
-| [`@swoosh/sdk`](packages/sdk) | `npm i @swoosh/sdk ai @ai-sdk/openai` | Batteries-included drop-in — `createRouter()`, auto-wired providers, re-exports everything |
-| [`@swoosh/router`](packages/model-router) | `npm i @swoosh/router` | Zero-dependency core: intent + policy routing, inspectable plans, fallback |
-| [`@swoosh/capabilities`](packages/capabilities) | `npm i @swoosh/capabilities` | Curated, enriched model dataset (models.dev ∪ web_search / latency / quality / benchmarks) |
-| [`@swoosh/judge`](packages/judge) | `npm i @swoosh/judge` | Dynamic policies — classify the prompt with an LLM judge, route by verdict |
-| [`@swoosh/ai-sdk`](packages/ai-sdk) | `npm i @swoosh/ai-sdk ai` | Vercel AI SDK provider adapter |
+| [`@semafore/sdk`](packages/sdk) | `npm i @semafore/sdk ai @ai-sdk/openai` | Batteries-included drop-in — `createRouter()`, auto-wired providers, re-exports everything |
+| [`@semafore/router`](packages/model-router) | `npm i @semafore/router` | Zero-dependency core: intent + policy routing, inspectable plans, fallback |
+| [`@semafore/capabilities`](packages/capabilities) | `npm i @semafore/capabilities` | Curated, enriched model dataset (models.dev ∪ web_search / latency / quality / benchmarks) |
+| [`@semafore/judge`](packages/judge) | `npm i @semafore/judge` | Dynamic policies — classify the prompt with an LLM judge, route by verdict |
+| [`@semafore/ai-sdk`](packages/ai-sdk) | `npm i @semafore/ai-sdk ai` | Vercel AI SDK provider adapter |
 
 The core has **zero runtime dependencies** — plain Promises, no framework to adopt.
 
