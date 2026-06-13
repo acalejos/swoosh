@@ -27,7 +27,7 @@ const router = new ModelRouter({
 
 ## How it's built
 
-`bun run build` (see [scripts/build.ts](scripts/build.ts)) pulls `models.dev/api.json`, normalizes it via `@swoosh/router`'s `normalizeModelsDevCatalog`, narrows it to a major-provider allowlist (`SWOOSH_PROVIDERS` to override), merges [src/overrides.ts](src/overrides.ts) with `mergeCapabilities`, sorts deterministically, and writes `src/capabilities.generated.json`.
+`bun run refresh` (see [scripts/build.ts](scripts/build.ts)) pulls `models.dev/api.json`, normalizes it via `@swoosh/router`'s `normalizeModelsDevCatalog`, narrows it to a major-provider allowlist (`SWOOSH_PROVIDERS` to override), merges [src/overrides.ts](src/overrides.ts) with `mergeCapabilities`, sorts deterministically, and writes `src/capabilities.generated.json`.
 
 CI runs this on a schedule and opens a PR with the diff ([ci/refresh-capabilities.yml](ci/refresh-capabilities.yml)) — refreshes are **reviewed, never auto-merged**, so a models.dev change can't silently alter routing.
 

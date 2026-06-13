@@ -4,8 +4,23 @@
   "description": "Dynamic routing policies for @swoosh/router \u2014 classify the prompt with an LLM judge (structured output) and route accordingly.",
   "license": "Apache-2.0",
   "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "development": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean --treeshake"
   },
   "dependencies": {
     "@swoosh/router": "workspace:*"

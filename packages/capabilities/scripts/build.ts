@@ -1,6 +1,6 @@
 // Builds src/capabilities.generated.json: the models.dev base, curated down to
 // major providers, enriched with src/overrides.ts. Run by CI on a schedule (it
-// opens a PR with the diff) or locally: `bun run build` from this package.
+// opens a PR with the diff) or locally: `bun run refresh` from this package.
 //
 //   MODELS_DEV_URL  override the source (defaults to the live API)
 //   MODELS_DEV_FILE  read a local api.json instead of fetching

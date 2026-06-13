@@ -4,8 +4,23 @@
   "description": "Intent-driven, policy-driven model routing with capability catalogs, cost/latency constraints, and automatic fallback.",
   "license": "Apache-2.0",
   "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "development": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean --treeshake"
   },
   "repository": {
     "type": "git",

@@ -4,8 +4,23 @@
   "description": "Batteries-included drop-in for swoosh \u2014 createRouter() with the enriched default catalog and AI-SDK providers auto-wired from your API keys.",
   "license": "Apache-2.0",
   "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "development": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean --treeshake"
   },
   "dependencies": {
     "@swoosh/ai-sdk": "workspace:*",

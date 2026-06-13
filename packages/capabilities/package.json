@@ -4,11 +4,24 @@
   "description": "Curated default model-capability dataset for @swoosh/router \u2014 models.dev enriched with features it doesn't carry (web_search, latency classes, quality scores).",
   "license": "Apache-2.0",
   "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "development": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
   },
   "scripts": {
-    "build": "bun run scripts/build.ts"
+    "refresh": "bun run scripts/build.ts",
+    "build": "tsup src/index.ts --format esm --dts --clean --treeshake"
   },
   "dependencies": {
     "@swoosh/router": "workspace:*"
