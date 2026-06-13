@@ -1,0 +1,22 @@
+{
+  "name": "@swoosh/judge",
+  "version": "0.1.0",
+  "description": "Dynamic routing policies for @swoosh/router \u2014 classify the prompt with an LLM judge (structured output) and route accordingly.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@swoosh/router": "workspace:*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/acalejos/swoosh.git",
+    "directory": "packages/judge"
+  },
+  "homepage": "https://github.com/acalejos/swoosh#readme",
+  "publishConfig": {
+    "access": "public"
+  }
+}

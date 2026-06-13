@@ -1,0 +1,46 @@
+{
+  "name": "@swoosh/sdk",
+  "version": "0.1.0",
+  "description": "Batteries-included drop-in for swoosh \u2014 createRouter() with the enriched default catalog and AI-SDK providers auto-wired from your API keys.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@swoosh/ai-sdk": "workspace:*",
+    "@swoosh/capabilities": "workspace:*",
+    "@swoosh/judge": "workspace:*",
+    "@swoosh/router": "workspace:*"
+  },
+  "peerDependencies": {
+    "ai": ">=5.0.0",
+    "@ai-sdk/anthropic": "*",
+    "@ai-sdk/google": "*",
+    "@ai-sdk/openai": "*",
+    "@openrouter/ai-sdk-provider": "*"
+  },
+  "peerDependenciesMeta": {
+    "@ai-sdk/anthropic": {
+      "optional": true
+    },
+    "@ai-sdk/google": {
+      "optional": true
+    },
+    "@ai-sdk/openai": {
+      "optional": true
+    },
+    "@openrouter/ai-sdk-provider": {
+      "optional": true
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/acalejos/swoosh.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://github.com/acalejos/swoosh#readme",
+  "publishConfig": {
+    "access": "public"
+  }
+}

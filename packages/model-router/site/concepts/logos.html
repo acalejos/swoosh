@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>swoosh — logo concepts</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root { --paper:#f4f1ea; --ink:#16140f; --dim:#6b6658; --sig:#e8490f; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--paper); color:var(--ink); font-family:"IBM Plex Mono",monospace; -webkit-font-smoothing:antialiased; padding-bottom:70px; }
+  .frame { max-width:1100px; margin:0 auto; padding:0 36px; }
+  header { border-bottom:2px solid var(--ink); padding:40px 0 26px; margin-bottom:36px; }
+  h1 { font-family:"Bricolage Grotesque",sans-serif; font-weight:800; font-size:clamp(34px,5vw,52px); letter-spacing:-.03em; }
+  h1 .sw { color:var(--sig); }
+  .sub { color:var(--dim); font-size:14px; margin-top:12px; max-width:64ch; }
+  h2 { font-family:"Bricolage Grotesque",sans-serif; font-weight:800; font-size:13px; text-transform:uppercase; letter-spacing:.14em; color:var(--sig); margin:8px 0 18px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:18px; margin-bottom:48px; }
+  .tile { border:2px solid var(--ink); border-radius:16px; overflow:hidden; }
+  .art { height:150px; display:flex; align-items:center; justify-content:center; }
+  .cap { border-top:2px solid var(--ink); padding:10px 14px; font-size:12px; color:var(--dim); }
+  .cap b { color:var(--ink); font-weight:500; display:block; font-size:13px; }
+  .dark { background:var(--ink); } .dark .cap { color:#b8b3a6; } .dark .cap b{ color:var(--paper); }
+  .lock { display:flex; align-items:center; gap:36px; flex-wrap:wrap; margin-bottom:46px; }
+  .lockcard { border:2px solid var(--ink); border-radius:16px; padding:30px 36px; display:flex; align-items:center; gap:16px; }
+  .lockcard.dark { background:var(--ink); }
+  .wmtxt { font-family:"Bricolage Grotesque",sans-serif; font-weight:800; font-size:40px; letter-spacing:-.03em; color:var(--ink); }
+  .dark .wmtxt { color:var(--paper); }
+  .dot { width:13px; height:13px; border-radius:50%; background:var(--sig); display:inline-block; }
+  .icons { display:flex; gap:20px; flex-wrap:wrap; }
+  .appicon { width:96px; height:96px; border-radius:22px; display:flex; align-items:center; justify-content:center; }
+</style>
+</head>
+<body>
+<header><div class="frame">
+  <h1>swoosh — logo concepts<span class="sw">.</span></h1>
+  <p class="sub">A first pass at the mark. The throughline: a single swept stroke that flows into a solid arrowhead — routing, motion, the name. Monochrome ink with the signal-orange accent; everything works on light and dark.</p>
+</div></header>
+
+<div class="frame">
+  <h2>Marks</h2>
+  <div class="grid">
+    <div class="tile"><div class="art">
+      <svg width="92" height="92" viewBox="0 0 48 48" fill="none"><path d="M8 36 C 20 36, 25 18, 34 14" stroke="#e8490f" stroke-width="4.4" stroke-linecap="round"/><g transform="translate(34 14) rotate(-20)"><path d="M12 0 L -4 -6.5 L -4 6.5 Z" fill="#e8490f"/></g></svg>
+    </div><div class="cap"><b>1 · The sweep</b>route → model, in one stroke</div></div>
+
+    <div class="tile"><div class="art">
+      <svg width="78" height="78" viewBox="0 0 48 48" fill="none"><path d="M35 14 C 35 8, 13 7, 13 16 C 13 24, 35 23, 35 32 C 35 41, 12 40, 12 33" stroke="#16140f" stroke-width="5" stroke-linecap="round"/></svg>
+    </div><div class="cap"><b>2 · The "s"</b>the letter as a swoosh</div></div>
+
+    <div class="tile"><div class="art">
+      <svg width="92" height="86" viewBox="0 0 52 48" fill="none"><path d="M5 24 H 17" stroke="#16140f" stroke-width="4" stroke-linecap="round"/><path d="M17 24 C 30 24, 30 11, 44 11" stroke="#16140f" stroke-width="4" stroke-linecap="round"/><path d="M17 24 C 30 24, 30 37, 44 37" stroke="#16140f" stroke-width="4" stroke-linecap="round" opacity=".35"/><circle cx="46" cy="11" r="4.5" fill="#e8490f"/><circle cx="46" cy="37" r="4" fill="#16140f" opacity=".3"/></svg>
+    </div><div class="cap"><b>3 · The fork</b>intent picks one route</div></div>
+
+    <div class="tile"><div class="art">
+      <svg width="92" height="80" viewBox="0 0 52 44" fill="none"><path d="M5 36 C 22 36, 18 9, 46 9" stroke="#e8490f" stroke-width="3.6" stroke-linecap="round" stroke-dasharray="0.5 5.5"/><circle cx="26" cy="20.5" r="6" fill="#e8490f"/></svg>
+    </div><div class="cap"><b>4 · The particle</b>a request riding the curve</div></div>
+
+    <div class="tile"><div class="art">
+      <svg width="86" height="80" viewBox="0 0 50 46" fill="none"><path d="M6 32 C 16 32, 15 20, 26 20" stroke="#16140f" stroke-width="3.6" stroke-linecap="round" opacity=".3"/><path d="M10 36 C 22 36, 20 18, 34 18" stroke="#16140f" stroke-width="3.8" stroke-linecap="round" opacity=".6"/><path d="M14 40 C 28 40, 25 14, 44 14" stroke="#e8490f" stroke-width="4.2" stroke-linecap="round"/></svg>
+    </div><div class="cap"><b>5 · Velocity</b>stacked swooshes = speed</div></div>
+
+    <div class="tile dark"><div class="art">
+      <svg width="92" height="92" viewBox="0 0 48 48" fill="none"><path d="M8 36 C 20 36, 25 18, 34 14" stroke="#f4f1ea" stroke-width="4.4" stroke-linecap="round"/><g transform="translate(34 14) rotate(-20)"><path d="M12 0 L -4 -6.5 L -4 6.5 Z" fill="#e8490f"/></g></svg>
+    </div><div class="cap"><b>1 · On dark</b>paper stroke, orange tip</div></div>
+  </div>
+
+  <h2>Wordmark lockups</h2>
+  <div class="lock">
+    <div class="lockcard">
+      <svg width="32" height="32" viewBox="0 0 26 26" fill="none"><path d="M4.5 19.5 C 11 19.5, 13.5 9, 19 7" stroke="#e8490f" stroke-width="3" stroke-linecap="round"/><g transform="translate(19 7) rotate(-18)"><path d="M6.5 0 L -2 -3.6 L -2 3.6 Z" fill="#e8490f"/></g></svg>
+      <span class="wmtxt">swoosh</span>
+    </div>
+    <div class="lockcard"><span class="wmtxt">swoosh</span><span class="dot"></span></div>
+    <div class="lockcard dark">
+      <svg width="32" height="32" viewBox="0 0 26 26" fill="none"><path d="M4.5 19.5 C 11 19.5, 13.5 9, 19 7" stroke="#f4f1ea" stroke-width="3" stroke-linecap="round"/><g transform="translate(19 7) rotate(-18)"><path d="M6.5 0 L -2 -3.6 L -2 3.6 Z" fill="#e8490f"/></g></svg>
+      <span class="wmtxt">swoosh</span>
+    </div>
+  </div>
+
+  <h2>App icon</h2>
+  <div class="icons">
+    <div class="appicon" style="background:#16140f;"><svg width="58" height="58" viewBox="0 0 48 48" fill="none"><path d="M8 36 C 20 36, 25 18, 34 14" stroke="#f4f1ea" stroke-width="5" stroke-linecap="round"/><g transform="translate(34 14) rotate(-20)"><path d="M12 0 L -4 -6.5 L -4 6.5 Z" fill="#e8490f"/></g></svg></div>
+    <div class="appicon" style="background:#e8490f;"><svg width="58" height="58" viewBox="0 0 48 48" fill="none"><path d="M8 36 C 20 36, 25 18, 34 14" stroke="#fff" stroke-width="5" stroke-linecap="round"/><g transform="translate(34 14) rotate(-20)"><path d="M12 0 L -4 -6.5 L -4 6.5 Z" fill="#fff"/></g></svg></div>
+    <div class="appicon" style="background:#f4f1ea; border:2px solid #16140f;"><svg width="58" height="58" viewBox="0 0 48 48" fill="none"><path d="M8 36 C 20 36, 25 18, 34 14" stroke="#16140f" stroke-width="5" stroke-linecap="round"/><g transform="translate(34 14) rotate(-20)"><path d="M12 0 L -4 -6.5 L -4 6.5 Z" fill="#e8490f"/></g></svg></div>
+  </div>
+  <p class="sub" style="margin-top:30px"><a href="../index.html" style="color:var(--sig)">← back to swoosh</a></p>
+</div>
+</body>
+</html>

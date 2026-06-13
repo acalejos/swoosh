@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>swoosh — just give me a model</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root { --paper:#f4f1ea; --paper2:#efeadf; --ink:#16140f; --dim:#6b6658; --sig:#e8490f; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--paper); color:var(--ink); font-family:"IBM Plex Mono",monospace; font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+  .disp { font-family:"Bricolage Grotesque",sans-serif; }
+  .frame { max-width:1200px; margin:0 auto; padding:0 40px; }
+  ::selection { background:var(--sig); color:var(--paper); }
+  a { color:var(--ink); }
+
+  header { position:sticky; top:0; z-index:50; background:var(--paper); }
+  .bar { display:flex; align-items:center; justify-content:space-between; height:74px; }
+  .wm { font-family:"Bricolage Grotesque",sans-serif; font-weight:800; font-size:24px; letter-spacing:-.02em; text-decoration:none; color:var(--ink); display:flex; align-items:center; gap:9px; }
+  .wm svg { display:block; }
+  nav a { text-decoration:none; color:var(--ink); font-weight:600; font-size:14px; margin-left:26px; }
+  nav a:hover { color:var(--sig); }
+  nav a.gh { background:var(--ink); color:var(--paper); padding:9px 18px; border-radius:30px; }
+
+  .hero { display:grid; grid-template-columns:1fr 1fr; gap:48px; align-items:center; padding:60px 0 80px; }
+  h1.big { font-family:"Bricolage Grotesque",sans-serif; font-weight:800; font-size:clamp(56px,7.6vw,104px); line-height:.92; letter-spacing:-.04em; }
+  h1.big .sw { color:var(--sig); }
+  .lede { color:var(--dim); font-size:16px; line-height:1.7; max-width:44ch; margin:26px 0 30px; }
+  .cta { display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  .btn { background:var(--ink); color:var(--paper); font-family:"Bricolage Grotesque",sans-serif; font-weight:700; font-size:15px; padding:14px 26px; border-radius:40px; text-decoration:none; }
+  .btn.ghost { background:transparent; color:var(--ink); border:2px solid var(--ink); }
+  .cta .note { font-size:13px; color:var(--dim); }
+  .video { border-radius:20px; overflow:hidden; border:2px solid var(--ink); background:var(--paper); }
+  .video video { width:100%; display:block; }
+
+  section.band { border-top:2px solid var(--ink); }
+  .sec-head { display:flex; align-items:baseline; gap:18px; padding:30px 0 8px; }
+  .sec-head .no { font-size:13px; color:var(--sig); }
+  .sec-head h2 { font-family:"Bricolage Grotesque",sans-serif; font-weight:800; font-size:clamp(30px,3.6vw,46px); letter-spacing:-.02em; line-height:1; }
+  .sec-head .tag { margin-left:auto; font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--dim); }
+
+  .steps { display:grid; grid-template-columns:repeat(3,1fr); gap:0; padding-bottom:40px; }
+  .step { padding:28px 28px 28px 0; }
+  .step:not(:last-child){ border-right:2px solid var(--ink); padding-right:28px; }
+  .step:not(:first-child){ padding-left:28px; }
+  .step .k { color:var(--sig); font-weight:600; font-size:12px; letter-spacing:.1em; text-transform:uppercase; }
+  .step h3 { font-family:"Bricolage Grotesque",sans-serif; font-weight:700; font-size:26px; margin:10px 0 12px; }
+  .step p { color:var(--dim); font-size:13.5px; margin-bottom:16px; }
+  pre { background:var(--ink); color:#ece8db; font-size:12.5px; line-height:1.7; padding:16px 18px; border-radius:12px; overflow-x:auto; }
+  .tk-k{color:#ff9b6b} .tk-s{color:#a8d08d} .tk-p{color:#7ec8d8} .tk-c{color:#8a857a;font-style:italic} .tk-n{color:#e3c46e}
+
+  .board { border:2px solid var(--ink); border-radius:16px; overflow:hidden; margin:24px 0 44px; }
+  .brow { display:grid; grid-template-columns:64px 1.4fr 1fr 120px 1.6fr; gap:14px; align-items:baseline; padding:14px 20px; border-bottom:2px solid var(--ink); font-size:13.5px; }
+  .brow:last-child{border-bottom:0} .brow.head{ background:var(--ink); color:var(--paper); font-size:11px; letter-spacing:.1em; text-transform:uppercase; }
+  .brow .m{font-weight:600} .brow .idx{color:var(--dim)} .brow .why{color:var(--dim); font-size:12.5px}
+  .pill { display:inline-block; padding:3px 11px; border-radius:30px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; border:2px solid; }
+  .p-sel{background:var(--ink); color:var(--paper); border-color:var(--ink)} .p-fb{color:#9a6a00; border-color:#caa54e} .p-rj{color:var(--sig); border-color:var(--sig)}
+  .selrow{ background:var(--paper2); }
+
+  .pkg-hero{ display:block; text-decoration:none; color:var(--ink); border:2px solid var(--ink); border-radius:18px; padding:28px 30px; margin:22px 0 20px; }
+  .pkg-hero:hover{ background:var(--paper2); }
+  .pkg-hero .top{ display:flex; align-items:center; gap:14px; margin-bottom:12px; }
+  .pkg-hero .nm{ font-weight:600; font-size:22px; } .badge{ background:var(--sig); color:var(--paper); font-size:11px; text-transform:uppercase; letter-spacing:.1em; padding:3px 12px; border-radius:30px; }
+  .pkg-hero p{ color:var(--dim); max-width:74ch; } .pkg-hero .lk{ color:var(--sig); font-size:12px; text-transform:uppercase; letter-spacing:.08em; display:inline-block; margin-top:12px; }
+  .pkg-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:16px; padding-bottom:44px; }
+  .pkg{ text-decoration:none; color:var(--ink); border:2px solid var(--ink); border-radius:14px; padding:22px 24px; }
+  .pkg:hover{ background:var(--paper2); } .pkg .nm{ font-weight:600; font-size:16px; } .pkg p{ color:var(--dim); font-size:13px; margin:8px 0 10px; } .pkg .lk{ color:var(--sig); font-size:12px; text-transform:uppercase; letter-spacing:.08em; }
+
+  .ex{ display:grid; grid-template-columns:repeat(3,1fr); gap:0; padding-bottom:40px; }
+  .ex .step{ padding:28px; } .ex .step:not(:last-child){ border-right:2px solid var(--ink); }
+  .feats{ display:grid; grid-template-columns:repeat(3,1fr); gap:0; padding-bottom:8px; }
+  .feat{ padding:28px; border-top:2px solid var(--ink); border-right:2px solid var(--ink); }
+  .feat:nth-child(3n){ border-right:0; } .feat .g{ font-size:22px; color:var(--sig); }
+  .feat h3{ font-family:"Bricolage Grotesque",sans-serif; font-weight:700; font-size:22px; margin:10px 0 8px; } .feat p{ color:var(--dim); font-size:13.5px; }
+
+  .closing{ text-align:center; padding:90px 24px; border-top:2px solid var(--ink); }
+  .closing h2{ font-family:"Bricolage Grotesque",sans-serif; font-weight:800; font-size:clamp(40px,6vw,72px); letter-spacing:-.03em; line-height:.95; }
+  .closing h2 .sw{ color:var(--sig); } .closing p{ color:var(--dim); margin:18px 0 30px; }
+  footer{ border-top:2px solid var(--ink); } .foot{ display:flex; justify-content:space-between; padding:22px 0; font-size:12px; color:var(--dim); flex-wrap:wrap; gap:10px; }
+  .foot a{ color:var(--ink); }
+
+  @media (max-width:920px){
+    .hero{ grid-template-columns:1fr; } .steps,.ex,.feats{ grid-template-columns:1fr; }
+    .step,.ex .step,.feat{ border-right:0 !important; border-top:2px solid var(--ink); padding:24px 0; }
+    .pkg-grid{ grid-template-columns:1fr; } .brow{ grid-template-columns:1fr 110px; } .brow .idx,.brow .prov,.brow.head .why{ display:none; } .brow .why{ grid-column:1/-1; }
+  }
+</style>
+</head>
+<body>
+<header><div class="frame bar">
+  <a class="wm" href="#"><svg width="27" height="27" viewBox="0 0 26 26" fill="none"><path d="M4.5 19.5 C 11 19.5, 13.5 9, 19 7" stroke="#e8490f" stroke-width="3" stroke-linecap="round"/><g transform="translate(19 7) rotate(-18)"><path d="M6.5 0 L -2 -3.6 L -2 3.6 Z" fill="#e8490f"/></g></svg>swoosh</a>
+  <nav>
+    <a href="#how">How it works</a><a href="#plan">The plan</a><a href="#packages">Packages</a><a href="concepts/logos.html">Brand</a><a class="gh" href="#">GitHub ↗</a>
+  </nav>
+</div></header>
+
+<div class="frame">
+  <section class="hero">
+    <div>
+      <h1 class="big">Point at a task. <span class="sw">swoosh.</span></h1>
+      <p class="lede">Just give me a model. swoosh routes each task by intent and policy — declare what it needs, it picks the model, explains every rejection, and falls back automatically.</p>
+      <div class="cta">
+        <a class="btn" href="#">npm i @swoosh/sdk</a>
+        <span class="note">then <code>await createRouter()</code><br>providers wired from your keys</span>
+      </div>
+    </div>
+    <div class="video"><video autoplay muted loop playsinline><source src="hero.mp4?v=3" type="video/mp4"></video></div>
+  </section>
+</div>
+
+<section class="band" id="how"><div class="frame">
+  <div class="sec-head"><span class="no">01</span><h2 class="disp">How it works</h2><span class="tag">three moves, no model ids</span></div>
+  <div class="steps">
+    <div class="step">
+      <span class="k">declare intent</span><h3>Say what it needs</h3>
+      <p>Requirements, not model names — modalities, features, token estimates.</p>
+      <pre><code><span class="tk-k">await</span> router.<span class="tk-p">generateObject</span>({
+  task: <span class="tk-s">"recipe.extract"</span>,
+  inputModalities: [<span class="tk-s">"text"</span>,<span class="tk-s">"image"</span>],
+  requiresFeatures: [<span class="tk-s">"structured_output"</span>],
+})</code></pre>
+    </div>
+    <div class="step">
+      <span class="k">set policy</span><h3>Make the rules</h3>
+      <p>Cost ceilings, latency, benchmarks, or an LLM judge — enforced at plan time.</p>
+      <pre><code>preference: <span class="tk-s">"cheapest"</span>,
+constraints: {
+  maxCostUsd: <span class="tk-n">0.01</span>,
+  maxLatencyClass: <span class="tk-s">"standard"</span>,
+}</code></pre>
+    </div>
+    <div class="step">
+      <span class="k">execute</span><h3>Fallback is free</h3>
+      <p>It walks the ranked routes until one succeeds, with the attempt log.</p>
+      <pre><code><span class="tk-c">// attempts</span>
+[{ model: <span class="tk-s">"gemini"</span>, ok: <span class="tk-k">true</span> }]
+<span class="tk-c">// or → next route on fail</span></code></pre>
+    </div>
+  </div>
+</div></section>
+
+<section class="band" id="plan"><div class="frame">
+  <div class="sec-head"><span class="no">02</span><h2 class="disp">Every decision, on record</h2><span class="tag">plan() — inspect before you spend</span></div>
+  <div class="board">
+    <div class="brow head"><span class="idx">№</span><span>Model</span><span class="prov">Provider</span><span>Status</span><span class="why">Reason</span></div>
+    <div class="brow selrow"><span class="idx">01</span><span class="m">gemini-2.5-flash</span><span class="prov">google</span><span><span class="pill p-sel">selected</span></span><span class="why">Lowest cost among text+image candidates.</span></div>
+    <div class="brow"><span class="idx">02</span><span class="m">claude-haiku-4-5</span><span class="prov">anthropic</span><span><span class="pill p-fb">fallback</span></span><span class="why">Next-cheapest; tried on failure.</span></div>
+    <div class="brow"><span class="idx">03</span><span class="m">claude-opus-4-8</span><span class="prov">anthropic</span><span><span class="pill p-rj">rejected</span></span><span class="why">Estimated cost exceeds policy.</span></div>
+    <div class="brow"><span class="idx">04</span><span class="m">qwen3.6</span><span class="prov">openrouter</span><span><span class="pill p-rj">rejected</span></span><span class="why">Missing input modality: image.</span></div>
+  </div>
+</div></section>
+
+<section class="band" id="packages"><div class="frame">
+  <div class="sec-head"><span class="no">03</span><h2 class="disp">One install, or compose</h2><span class="tag">@swoosh/sdk = the lot, wired</span></div>
+  <a class="pkg-hero" href="docs.html#install">
+    <div class="top"><span class="nm">@swoosh/sdk</span><span class="badge">drop-in</span></div>
+    <p>The batteries-included front door. <code>createRouter()</code> gives you the enriched default catalog and AI-SDK providers auto-wired from your API keys — and re-exports the whole toolkit, so one install is all most apps need.</p>
+    <span class="lk">Read the docs →</span>
+  </a>
+  <div class="pkg-grid">
+    <a class="pkg" href="docs.html#router"><span class="nm">@swoosh/router</span><p>Zero-dependency core — intent + policy routing, inspectable plans, fallback.</p><span class="lk">Docs →</span></a>
+    <a class="pkg" href="docs.html#catalogs"><span class="nm">@swoosh/capabilities</span><p>Enriched model dataset — models.dev plus web_search, latency, quality, benchmarks.</p><span class="lk">Docs →</span></a>
+    <a class="pkg" href="docs.html#policies"><span class="nm">@swoosh/judge</span><p>Dynamic policies — classify the prompt with an LLM judge, route by verdict.</p><span class="lk">Docs →</span></a>
+    <a class="pkg" href="docs.html#adapters"><span class="nm">@swoosh/ai-sdk</span><p>The Vercel AI SDK adapter, separate so the core stays dependency-free.</p><span class="lk">Docs →</span></a>
+  </div>
+</div></section>
+
+<section class="band"><div class="frame">
+  <div class="sec-head"><span class="no">04</span><h2 class="disp">Recipes</h2><span class="tag">runnable offline — no keys</span></div>
+  <div class="ex">
+    <div class="step"><span class="k">cost</span><h3>Hard budgets</h3><p>Set a ceiling; over-budget models are rejected before a token is spent.</p></div>
+    <div class="step"><span class="k">benchmark</span><h3>Route by score</h3><p><code>byBenchmark("swe_bench")</code> — a name or a composite scoring function.</p></div>
+    <div class="step"><span class="k">dynamic</span><h3>LLM judge</h3><p>Classify the prompt, route by verdict — coding → best, chat → cheapest.</p></div>
+  </div>
+</div></section>
+
+<section class="band"><div class="frame">
+  <div class="feats">
+    <div class="feat"><span class="g">⌖</span><h3>Live catalogs</h3><p>Pull pricing &amp; limits from models.dev, or bring your own DB.</p></div>
+    <div class="feat"><span class="g">¶</span><h3>Policies as code</h3><p>Built-ins, benchmark ranking, or any function you write.</p></div>
+    <div class="feat"><span class="g">≡</span><h3>Explainable</h3><p>Every rejection carries a human-readable reason.</p></div>
+    <div class="feat"><span class="g">⇄</span><h3>Auto fallback</h3><p>Walks ranked routes; returns the attempt history.</p></div>
+    <div class="feat"><span class="g">◫</span><h3>BYO keys</h3><p>Pass a user's keys; it wires whatever they brought.</p></div>
+    <div class="feat"><span class="g">λ</span><h3>Zero-dep core</h3><p>Plain Promises, fully typed, no framework to adopt.</p></div>
+  </div>
+</div></section>
+
+<div class="closing">
+  <h2 class="disp">Just give me a <span class="sw">model.</span></h2>
+  <p>Point at a task. Set the rules. swoosh does the rest.</p>
+  <a class="btn" href="#">npm i @swoosh/sdk</a>
+</div>
+<footer><div class="frame foot"><span>© 2026 swoosh contributors · MIT</span><span>zero dependencies · <a href="docs.html">docs</a> · <a href="concepts/logos.html">brand</a> · catalog by <a href="https://models.dev">models.dev</a></span></div></footer>
+</body>
+</html>

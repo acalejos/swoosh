@@ -1,0 +1,19 @@
+{
+  "name": "@swoosh/router",
+  "version": "0.1.0",
+  "description": "Intent-driven, policy-driven model routing with capability catalogs, cost/latency constraints, and automatic fallback.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/acalejos/swoosh.git",
+    "directory": "packages/model-router"
+  },
+  "homepage": "https://github.com/acalejos/swoosh#readme",
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "types": ["node", "bun"],
+    "paths": {
+      "@swoosh/router": ["./packages/model-router/src/index.ts"],
+      "@swoosh/ai-sdk": ["./packages/ai-sdk/src/index.ts"],
+      "@swoosh/capabilities": ["./packages/capabilities/src/index.ts"],
+      "@swoosh/judge": ["./packages/judge/src/index.ts"],
+      "@swoosh/sdk": ["./packages/sdk/src/index.ts"]
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@swoosh/capabilities",
+  "version": "0.1.0",
+  "description": "Curated default model-capability dataset for @swoosh/router \u2014 models.dev enriched with features it doesn't carry (web_search, latency classes, quality scores).",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "bun run scripts/build.ts"
+  },
+  "dependencies": {
+    "@swoosh/router": "workspace:*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/acalejos/swoosh.git",
+    "directory": "packages/capabilities"
+  },
+  "homepage": "https://github.com/acalejos/swoosh#readme",
+  "publishConfig": {
+    "access": "public"
+  }
+}
