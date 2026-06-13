@@ -2,7 +2,7 @@ import {
   createStaticCapabilityCatalog,
   type CapabilityCatalog,
   type ModelCapability,
-} from "@semafore/router";
+} from "swoosh-router";
 import snapshot from "./capabilities.generated.json";
 
 export { defaultOverrides } from "./overrides";

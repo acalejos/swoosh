@@ -1,7 +1,7 @@
 {
-  "name": "@semafore/capabilities",
+  "name": "swoosh-capabilities",
   "version": "0.1.0",
-  "description": "Curated default model-capability dataset for @semafore/router \u2014 models.dev enriched with features it doesn't carry (web_search, latency classes, quality scores).",
+  "description": "Curated default model-capability dataset for swoosh-router \u2014 models.dev enriched with features it doesn't carry (web_search, latency classes, quality scores).",
   "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -24,7 +24,7 @@
     "build": "tsup src/index.ts --format esm --dts --clean --treeshake"
   },
   "dependencies": {
-    "@semafore/router": "workspace:*"
+    "swoosh-router": "workspace:*"
   },
   "repository": {
     "type": "git",

@@ -1,4 +1,4 @@
-import type { RoutePlan, RouterAttempt } from "@semafore/router";
+import type { RoutePlan, RouterAttempt } from "swoosh-router";
 
 export const printPlan = (plan: RoutePlan): void => {
   const cost = plan.estimate.costUsd !== undefined ? `$${plan.estimate.costUsd.toFixed(4)}` : "n/a";

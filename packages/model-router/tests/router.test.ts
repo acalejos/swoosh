@@ -15,7 +15,7 @@ import {
   normalizeModelsDevCatalog,
   roundRobin,
   type RoutingPolicy,
-} from "@semafore/router";
+} from "swoosh-router";
 
 const capability = (overrides: Partial<ModelCapability>): ModelCapability => ({
   providerId: "alpha",

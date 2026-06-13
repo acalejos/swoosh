@@ -1,5 +1,5 @@
 {
-  "name": "@semafore/router",
+  "name": "swoosh-router",
   "version": "0.1.0",
   "description": "Intent-driven, policy-driven model routing with capability catalogs, cost/latency constraints, and automatic fallback.",
   "license": "Apache-2.0",

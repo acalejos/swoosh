@@ -1,7 +1,7 @@
 {
-  "name": "@semafore/ai-sdk",
+  "name": "swoosh-ai-sdk",
   "version": "0.1.0",
-  "description": "Vercel AI SDK provider adapter for @semafore/router.",
+  "description": "Vercel AI SDK provider adapter for swoosh-router.",
   "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -23,7 +23,7 @@
     "build": "tsup src/index.ts --format esm --dts --clean --treeshake"
   },
   "dependencies": {
-    "@semafore/router": "workspace:*"
+    "swoosh-router": "workspace:*"
   },
   "peerDependencies": {
     "ai": ">=5.0.0"

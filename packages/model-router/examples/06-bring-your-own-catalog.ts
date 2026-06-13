@@ -6,7 +6,7 @@ import {
   createCapabilityCatalog,
   type ModelCapability,
   ModelRouter,
-} from "@semafore/router";
+} from "swoosh-router";
 import { printPlan } from "./shared/print";
 
 // Pretend this is a table in your database. The "columns" are exactly the

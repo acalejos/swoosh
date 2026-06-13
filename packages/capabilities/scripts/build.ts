@@ -11,7 +11,7 @@ import {
   mergeCapabilities,
   normalizeModelsDevCatalog,
   type ModelCapability,
-} from "@semafore/router";
+} from "swoosh-router";
 import { defaultOverrides } from "../src/overrides";
 
 const DEFAULT_PROVIDERS = [

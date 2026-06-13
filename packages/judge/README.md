@@ -1,15 +1,15 @@
-# @semafore/judge
+# swoosh-judge
 
-Dynamic routing policies for [`@semafore/router`](../model-router). Classify each request's prompt with an LLM judge (structured output), then route by the verdict — cheap models for small talk, top models for hard problems, search-capable models for current events.
+Dynamic routing policies for [`swoosh-router`](../model-router). Classify each request's prompt with an LLM judge (structured output), then route by the verdict — cheap models for small talk, top models for hard problems, search-capable models for current events.
 
 ```sh
-npm install @semafore/judge
+npm install swoosh-judge
 ```
 
 ```ts
-import { ModelRouter } from "@semafore/router";
-import { byBenchmark } from "@semafore/router";
-import { llmJudgePolicy } from "@semafore/judge";
+import { ModelRouter } from "swoosh-router";
+import { byBenchmark } from "swoosh-router";
+import { llmJudgePolicy } from "swoosh-judge";
 
 type Kind = "chat" | "coding" | "research";
 

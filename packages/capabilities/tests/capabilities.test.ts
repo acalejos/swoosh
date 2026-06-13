@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { ModelRouter, createCallbackProviderAdapter } from "@semafore/router";
-import { capabilities, defaultCatalog, defaultOverrides, meta } from "@semafore/capabilities";
+import { ModelRouter, createCallbackProviderAdapter } from "swoosh-router";
+import { capabilities, defaultCatalog, defaultOverrides, meta } from "swoosh-capabilities";
 
-describe("@semafore/capabilities", () => {
+describe("swoosh-capabilities", () => {
   test("ships a non-empty dataset with matching meta", () => {
     expect(capabilities.length).toBeGreaterThan(0);
     expect(meta.count).toBe(capabilities.length);

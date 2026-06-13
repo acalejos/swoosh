@@ -1,13 +1,13 @@
-# @semafore/sdk
+# swoosh-sdk
 
 The batteries-included drop-in for [swoosh](../model-router). One install, one call — the enriched default catalog plus AI-SDK provider adapters auto-wired from whatever API keys are in your environment. Also re-exports the whole toolkit, so it's a single import surface.
 
 ```sh
-npm install @semafore/sdk ai @ai-sdk/openai   # add more @ai-sdk/* providers as you like
+npm install swoosh-sdk ai @ai-sdk/openai   # add more @ai-sdk/* providers as you like
 ```
 
 ```ts
-import { createRouter } from "@semafore/sdk";
+import { createRouter } from "swoosh-sdk";
 
 const router = await createRouter();        // catalog + providers, wired from your keys
 
@@ -27,7 +27,7 @@ const out = await router.generateObject({
 
 | Option | Default | Notes |
 | --- | --- | --- |
-| `catalog` | `defaultCatalog()` from `@semafore/capabilities` | Any `CapabilityCatalog`. |
+| `catalog` | `defaultCatalog()` from `swoosh-capabilities` | Any `CapabilityCatalog`. |
 | `providers` | auto-wired from API keys | Pass your own adapters to opt out of auto-wiring. |
 | `defaultPreference` | `"balanced"` | Used when a request omits `preference`. |
 | `env` | `process.env` | Source for key detection. |
@@ -60,9 +60,9 @@ Users never configure models — the catalog supplies them, so new models become
 
 ## When to reach past the drop-in
 
-This package trades a heavier dependency footprint for zero-config. If you want a lean install or full control, compose the granular packages directly — [`@semafore/router`](../model-router) (zero-dep core), [`@semafore/ai-sdk`](../ai-sdk), [`@semafore/capabilities`](../capabilities), [`@semafore/judge`](../judge). The drop-in is built entirely from them.
+This package trades a heavier dependency footprint for zero-config. If you want a lean install or full control, compose the granular packages directly — [`swoosh-router`](../model-router) (zero-dep core), [`swoosh-ai-sdk`](../ai-sdk), [`swoosh-capabilities`](../capabilities), [`swoosh-judge`](../judge). The drop-in is built entirely from them.
 
 ```ts
 // Everything is also re-exported here:
-import { byBenchmark, llmJudgePolicy, filterCapabilityCatalog, defaultCatalog } from "@semafore/sdk";
+import { byBenchmark, llmJudgePolicy, filterCapabilityCatalog, defaultCatalog } from "swoosh-sdk";
 ```
