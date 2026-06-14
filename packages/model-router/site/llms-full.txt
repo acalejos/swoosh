@@ -1,0 +1,1675 @@
+# swoosh — complete documentation for LLMs
+
+> Just give me a model. Intent-driven, policy-driven model routing for TypeScript.
+
+This single file contains the project overview, every package's README, its complete generated TypeScript API (`.d.ts`), and the full source of every example. Generated from source by `bun run docs` — nothing here is hand-maintained, so signatures never drift.
+
+
+---
+
+
+## Overview
+
+<div align="center">
+
+# swoosh
+
+**Just give me a model.**
+
+Intent-driven, policy-driven model routing for TypeScript. Declare *what* a task
+needs and *how* to choose; swoosh plans the best model, explains every rejection,
+and falls back automatically.
+
+</div>
+
+---
+
+Hard-coding `model: "gpt-..."` couples your app to one provider's naming, pricing,
+and outages. swoosh inverts that:
+
+- **Intent, not model IDs.** Requests declare requirements (`inputModalities`,
+  `requiresFeatures`), and the router finds the models that satisfy them.
+- **Policy, not hope.** Constraints (`maxCostUsd`, `maxLatencyClass`, provider
+  allow/deny, benchmark scores, an LLM judge) are enforced at planning time —
+  each rejection carries a reason.
+- **Plans are inspectable.** `plan()` returns the selected model, ranked
+  fallbacks, every rejected candidate with its reason, and a cost estimate —
+  before anything executes.
+- **Execution falls back automatically**, recording every attempt.
+
+## Quick start
+
+```sh
+npm install swoosh-sdk ai @ai-sdk/openai
+```
+
+```ts
+import { createRouter } from "swoosh-sdk";
+
+const router = await createRouter(); // enriched catalog + providers from your keys
+
+const out = await router.generateObject({
+  task: "support.triage",
+  input: ticket,
+  prompt: `Classify: ${ticket}`,
+  inputModalities: ["text"],
+  requiresFeatures: ["structured_output"],
+  preference: "cheapest",
+});
+```
+
+`createRouter()` wires AI-SDK providers for whatever API keys are present and
+defaults to the bundled, enriched model catalog. Want control over each piece?
+Compose the packages directly.
+
+## Packages
+
+| Package | Install | What |
+| --- | --- | --- |
+| [`swoosh-sdk`](packages/sdk) | `npm i swoosh-sdk ai @ai-sdk/openai` | Batteries-included drop-in — `createRouter()`, auto-wired providers, re-exports everything |
+| [`swoosh-router`](packages/model-router) | `npm i swoosh-router` | Zero-dependency core: intent + policy routing, inspectable plans, fallback |
+| [`swoosh-capabilities`](packages/capabilities) | `npm i swoosh-capabilities` | Curated, enriched model dataset (models.dev ∪ web_search / latency / quality / benchmarks) |
+| [`swoosh-judge`](packages/judge) | `npm i swoosh-judge` | Dynamic policies — classify the prompt with an LLM judge, route by verdict |
+| [`swoosh-ai-sdk`](packages/ai-sdk) | `npm i swoosh-ai-sdk ai` | Vercel AI SDK provider adapter |
+
+The core has **zero runtime dependencies** — plain Promises, no framework to adopt.
+
+## Examples
+
+Eleven runnable scripts in [`packages/model-router/examples`](packages/model-router/examples)
+— all run offline with simulated providers, no API keys:
+
+```sh
+bun packages/model-router/examples/01-quickstart.ts
+```
+
+Quickstart · cost guardrails · multimodal routing · custom policy · outage
+fallback · bring-your-own-catalog · model access · web search · load balancing ·
+benchmark routing · LLM judge.
+
+## Develop
+
+```sh
+bun install
+bun run check:tsc   # typecheck
+bun test            # run the suite
+```
+
+## License
+
+[Apache-2.0](LICENSE) © Andres Alejos
+
+
+---
+
+
+# Packages
+
+
+---
+
+
+## swoosh-sdk
+
+> Batteries-included drop-in: createRouter(), auto-wired providers, re-exports everything.
+
+Install: `npm install swoosh-sdk` · Source: https://github.com/acalejos/swoosh/tree/main/packages/sdk
+
+# swoosh-sdk
+
+The batteries-included drop-in for [swoosh](../model-router). One install, one call — the enriched default catalog plus AI-SDK provider adapters auto-wired from whatever API keys are in your environment. Also re-exports the whole toolkit, so it's a single import surface.
+
+```sh
+npm install swoosh-sdk ai @ai-sdk/openai   # add more @ai-sdk/* providers as you like
+```
+
+```ts
+import { createRouter } from "swoosh-sdk";
+
+const router = await createRouter();        // catalog + providers, wired from your keys
+
+const out = await router.generateObject({
+  task: "support.triage",
+  input: ticket,
+  prompt: `Classify: ${ticket}`,
+  inputModalities: ["text"],
+  requiresFeatures: ["structured_output"],
+  preference: "cheapest",
+});
+```
+
+`OPENAI_API_KEY` present + `@ai-sdk/openai` installed → OpenAI is live. Add `ANTHROPIC_API_KEY` + `@ai-sdk/anthropic` and Anthropic joins automatically. Providers without a key, or without their package installed, are simply skipped.
+
+## `createRouter(options?)`
+
+| Option | Default | Notes |
+| --- | --- | --- |
+| `catalog` | `defaultCatalog()` from `swoosh-capabilities` | Any `CapabilityCatalog`. |
+| `providers` | auto-wired from API keys | Pass your own adapters to opt out of auto-wiring. |
+| `defaultPreference` | `"balanced"` | Used when a request omits `preference`. |
+| `env` | `process.env` | Source for key detection. |
+| `load` | dynamic `import` | Module loader (injectable for tests). |
+
+Returns a `Promise<ModelRouter>` — it's async because provider packages are loaded on demand.
+
+## Bring-your-own-keys apps
+
+Because providers are chosen from whatever keys are present, you can build a BYO-keys app without branching on provider in your code — pass the user's keys as the `env` and the router wires whatever they brought:
+
+```ts
+// Per request / per tenant — the user supplies whichever keys they have.
+const router = await createRouter({
+  env: {
+    OPENAI_API_KEY: user.keys.openai,
+    OPENROUTER_API_KEY: user.keys.openrouter, // one key, hundreds of models
+    ANTHROPIC_API_KEY: user.keys.anthropic,
+  },
+});
+// Same call regardless of who they are; the router routes across what they brought.
+const out = await router.generateObject({ task, input, requiresFeatures: ["structured_output"] });
+```
+
+Users never configure models — the catalog supplies them, so new models become routable as the dataset updates, with no code change. A user with only an OpenRouter key gets routed across the OpenRouter catalog; a user with raw provider keys gets routed across those. "Bring me your keys, I'll handle the rest."
+
+## Auto-wiring details
+
+`autoProviders()` is also exported if you want the adapters without the router. It maps each provider id to its `@ai-sdk/*` package via `providerRegistry`, checks `hasApiKey`, dynamically imports the package, and builds an adapter that resolves models through the provider factory. Requires `ai`; returns `[]` if `ai` isn't installed.
+
+## When to reach past the drop-in
+
+This package trades a heavier dependency footprint for zero-config. If you want a lean install or full control, compose the granular packages directly — [`swoosh-router`](../model-router) (zero-dep core), [`swoosh-ai-sdk`](../ai-sdk), [`swoosh-capabilities`](../capabilities), [`swoosh-judge`](../judge). The drop-in is built entirely from them.
+
+```ts
+// Everything is also re-exported here:
+import { byBenchmark, llmJudgePolicy, filterCapabilityCatalog, defaultCatalog } from "swoosh-sdk";
+```
+
+### swoosh-sdk — type definitions
+
+```ts
+import { ProviderAdapter, CapabilityCatalog, RoutingPreference, ModelRouter } from 'swoosh-router';
+export * from 'swoosh-router';
+export * from 'swoosh-judge';
+export { AiSdkProviderOptions, createAiSdkProviderAdapter } from 'swoosh-ai-sdk';
+export { capabilities, meta as capabilitiesMeta, defaultCatalog, defaultOverrides } from 'swoosh-capabilities';
+
+/** providerId (as used by models.dev / the catalog) → its AI SDK package + factory export. */
+interface ProviderEntry {
+    readonly pkg: string;
+    readonly factory: string;
+}
+declare const providerRegistry: Record<string, ProviderEntry>;
+interface AutoProvidersOptions {
+    /** Environment source for key detection. Defaults to `process.env`. */
+    readonly env?: Record<string, string | undefined>;
+    /** providerId → AI SDK package/factory. Defaults to {@link providerRegistry}. */
+    readonly registry?: Record<string, ProviderEntry>;
+    /** Module loader, defaults to dynamic `import`. Injectable for testing. */
+    readonly load?: (id: string) => Promise<unknown>;
+}
+/**
+ * Build AI SDK provider adapters for every provider whose API key is present in
+ * the environment *and* whose `@ai-sdk/*` package is installed — missing keys or
+ * uninstalled packages are silently skipped. Requires `ai`; returns `[]` if it
+ * isn't installed (nothing can execute without it).
+ */
+declare const autoProviders: (options?: AutoProvidersOptions) => Promise<ProviderAdapter[]>;
+
+interface CreateRouterOptions {
+    /** Capability catalog. Defaults to the bundled, enriched `swoosh-capabilities` dataset. */
+    readonly catalog?: CapabilityCatalog;
+    /** Provider adapters. Defaults to AI-SDK providers auto-wired from present API keys. */
+    readonly providers?: readonly ProviderAdapter[];
+    /** Preference used when a request omits one. Defaults to `"balanced"`. */
+    readonly defaultPreference?: RoutingPreference;
+    /** Environment source for key-based provider auto-wiring. Defaults to `process.env`. */
+    readonly env?: Record<string, string | undefined>;
+    /** Module loader for auto-wiring, defaults to dynamic `import`. Injectable for testing. */
+    readonly load?: (id: string) => Promise<unknown>;
+}
+/**
+ * Batteries-included router. With no arguments it uses the enriched default
+ * catalog and auto-wires AI SDK adapters for every provider whose API key is in
+ * the environment (and whose `@ai-sdk/*` package is installed):
+ *
+ *     const router = await createRouter();
+ *     const out = await router.generateObject({ task, input, requiresFeatures: ["structured_output"] });
+ *
+ * Pass `providers` to wire them yourself, or `catalog` to swap the dataset.
+ */
+declare const createRouter: (options?: CreateRouterOptions) => Promise<ModelRouter>;
+
+export { type AutoProvidersOptions, type CreateRouterOptions, type ProviderEntry, autoProviders, createRouter, providerRegistry };
+```
+
+
+---
+
+
+## swoosh-router
+
+> Zero-dependency core: intent + policy routing, inspectable plans, automatic fallback.
+
+Install: `npm install swoosh-router` · Source: https://github.com/acalejos/swoosh/tree/main/packages/model-router
+
+# swoosh — just give me a model
+
+```sh
+npm install swoosh-router
+```
+
+Intent-driven, policy-driven model routing. Describe **what** a task needs — modalities, structured output, tools, token estimates — and **how** to choose — cheapest, fastest, best quality, or a custom policy — and the router plans the best model, explains every rejection, and executes with automatic fallback.
+
+Zero runtime dependencies — plain Promises, no framework to adopt. Provider-agnostic: bring any provider via a small adapter, or plug in the [Vercel AI SDK](https://sdk.vercel.ai).
+
+## Packages
+
+The core router has zero runtime dependencies. Provider integrations that pull in third-party SDKs live in their own packages so the core stays light.
+
+| Package | Install | Contents |
+| --- | --- | --- |
+| [`swoosh-sdk`](../sdk) | `npm i swoosh-sdk ai @ai-sdk/openai` | **Batteries-included drop-in** — `createRouter()` with the enriched catalog and providers auto-wired from your API keys. Re-exports everything. |
+| [`swoosh-router`](.) | `npm i swoosh-router` | Router engine, capability catalogs, policies, callback adapter |
+| [`swoosh-ai-sdk`](../ai-sdk) | `npm i swoosh-ai-sdk ai` | Vercel AI SDK provider adapter (`ai` is a peer dependency) |
+| [`swoosh-capabilities`](../capabilities) | `npm i swoosh-capabilities` | Curated, enriched model dataset + `defaultCatalog()` (models.dev ∪ web_search / latency / quality / benchmarks) |
+| [`swoosh-judge`](../judge) | `npm i swoosh-judge` | Dynamic policies — classify the prompt with an LLM judge, route by the verdict |
+
+## Why
+
+Hard-coding `model: "gpt-..."` couples your application to one provider's naming, pricing, and outages. This router inverts that:
+
+- **Intent, not model IDs.** Requests declare requirements (`inputModalities: ["text", "image"]`, `requiresFeatures: ["structured_output"]`), and the router finds models that satisfy them.
+- **Policy, not hope.** Constraints (`maxCostUsd`, `maxLatencyClass`, provider allow/deny lists) are enforced at planning time, with a per-model rejection reason you can log or display.
+- **Plans are inspectable.** `plan()` returns the selected model, ranked fallbacks, every rejected candidate with its reason, and a cost estimate — before anything is executed.
+- **Execution falls back automatically.** `run()` / `runText()` walk the ranked routes until one succeeds, recording each attempt.
+
+## Quick start
+
+```ts
+import { ModelRouter, ModelsDevCapabilityCatalog } from "swoosh-router";
+import { createAiSdkProviderAdapter } from "swoosh-ai-sdk";
+import { google } from "@ai-sdk/google";
+import { generateObject } from "ai";
+
+const router = new ModelRouter({
+  // Live capability/pricing metadata from models.dev (or use createStaticCapabilityCatalog).
+  catalog: new ModelsDevCapabilityCatalog(),
+  providers: [
+    createAiSdkProviderAdapter({
+      providerId: "google",
+      models: { "gemini-2.5-flash": google("gemini-2.5-flash") },
+      generateObject: (request) => generateObject(request as never),
+    }),
+  ],
+  defaultPreference: "balanced",
+});
+
+const recipe = await router.generateObject({
+  task: "recipe.extract",
+  input: pageText,
+  prompt: "Extract the recipe from this page.",
+  inputModalities: ["text"],
+  requiresFeatures: ["structured_output"],
+  preference: "cheapest",
+  constraints: { maxCostUsd: 0.01 },
+});
+```
+
+## Planning without executing
+
+```ts
+const plan = await router.plan({
+  task: "video.summarize",
+  input: videoUrl,
+  inputModalities: ["video"],
+  estimatedInputTokens: 120_000,
+  preference: "fastest",
+  constraints: { deniedProviderIds: ["openai"], maxLatencyClass: "standard" },
+});
+
+plan.selected;  // { capability, score, reason, estimatedCostUsd }
+plan.fallbacks; // ranked alternates, tried in order on failure
+plan.rejected;  // [{ providerId, modelId, reason: "Estimated cost exceeds policy." }, ...]
+plan.estimate;  // { inputTokens, outputTokens, costUsd }
+```
+
+## Custom routing policies
+
+A policy is just a function from ranked candidates to ranked candidates — pass it as the `preference`:
+
+```ts
+import type { RoutingPolicy } from "swoosh-router";
+
+const euOnlyThenCheapest: RoutingPolicy = ({ candidates }) =>
+  candidates
+    .filter((candidate) => EU_PROVIDERS.has(candidate.capability.providerId))
+    .sort((a, b) => (a.estimatedCostUsd ?? Infinity) - (b.estimatedCostUsd ?? Infinity));
+```
+
+Policies can be **async**, which unlocks dynamic routing — e.g. classifying the prompt with an LLM judge before choosing (see [`swoosh-judge`](../judge)). And `byBenchmark` ranks on benchmark scores, by a single name or a composite scoring function:
+
+```ts
+import { byBenchmark } from "swoosh-router";
+
+preference: byBenchmark("swe_bench", { minimum: 0.5 });
+preference: byBenchmark((m) => 0.7 * (m.benchmarks?.swe_bench ?? 0) + 0.3 * (m.benchmarks?.gpqa ?? 0));
+```
+
+## Provider adapters
+
+Adapters are tiny — implement `generateObject` and/or `generateText` against your client of choice:
+
+```ts
+import { createCallbackProviderAdapter } from "swoosh-router";
+
+const anthropic = createCallbackProviderAdapter({
+  providerId: "anthropic",
+  isAvailable: () => Boolean(process.env.ANTHROPIC_API_KEY),
+  generateText: async ({ model, prompt }) => callClaude(model.modelId, prompt),
+});
+```
+
+## Capability catalogs
+
+`ModelCapability` is the canonical schema the router reads — the "columns" your source populates. models.dev is just one built-in source; opt out entirely and bring your own via `createCapabilityCatalog`, which wraps any sync/async loader (a DB query, an internal API, a cached file):
+
+```ts
+import { createCapabilityCatalog, normalizeModelsDevCatalog } from "swoosh-router";
+
+// Map your own rows onto the ModelCapability shape.
+const catalog = createCapabilityCatalog(async () => {
+  const rows = await db.select().from(models);
+  return rows.map(toModelCapability);
+});
+
+// Or, if your rows are already in models.dev's JSON shape, reuse the normalizer:
+const cached = createCapabilityCatalog(() => normalizeModelsDevCatalog(cachedJson));
+```
+
+`createStaticCapabilityCatalog` (fixed array) and `ModelsDevCapabilityCatalog` (live fetch) are the other two built-ins — all three satisfy the same `CapabilityCatalog` interface.
+
+### Scoping to the models you can access
+
+A catalog lists the *universe* of models; you rarely have access to all of them. Declare what you can actually use **once, at construction** — the config still comes from the catalog, you only name the ids. `filterCapabilityCatalog` wraps any catalog with an allowlist or a predicate:
+
+```ts
+import { ModelsDevCapabilityCatalog, filterCapabilityCatalog } from "swoosh-router";
+
+// Allowlist exact models (a bare modelId matches across providers):
+const catalog = filterCapabilityCatalog(new ModelsDevCapabilityCatalog(), [
+  "openai/gpt-4o",
+  "anthropic/claude-haiku-4-5",
+]);
+
+// Or a predicate, re-evaluated each plan — read live entitlements:
+const scoped = filterCapabilityCatalog(new ModelsDevCapabilityCatalog(), (m) =>
+  tenant.enabledModels.has(`${m.providerId}/${m.modelId}`),
+);
+```
+
+You have five composable options — provider keys via adapter `isAvailable()` (use `hasApiKey("openai")`, which checks the conventional env vars like `OPENAI_API_KEY` / `GEMINI_API_KEY`), an allowlist, a predicate, a bring-your-own-DB catalog, or live discovery from a provider's list-models endpoint. See [Model access in the docs](site/docs.html) for all five.
+
+## Examples
+
+The [examples directory](examples/README.md) has eleven runnable scripts — quickstart, cost guardrails, multimodal routing, custom policy, outage fallback, bring-your-own-catalog, model access, web search, load balancing, benchmark routing, and an LLM judge. All of them run offline with simulated providers:
+
+```sh
+bun packages/model-router/examples/01-quickstart.ts
+```
+
+## Module map
+
+| Module | Contents |
+| --- | --- |
+| `types` | Request/plan/capability types, `ModelRouterError` |
+| `catalog` | `createCapabilityCatalog` (bring your own DB/API), `filterCapabilityCatalog` (scope to accessible models), `mergeCapabilities` (enrich with overrides), `createStaticCapabilityCatalog`, `ModelsDevCapabilityCatalog`, `normalizeModelsDevCatalog` |
+| `policy` | Built-in preference policies, `byBenchmark` (rank by a benchmark or composite score), cost estimation, quality scoring |
+| `balance` | `loadBalance` (rotate across the top-N providers), `roundRobin` (rotate keys within a provider) |
+| `router` | `ModelRouter` — `plan`, `run`, `runText`, `generateObject`, `generateText` |
+| `adapters` | `createCallbackProviderAdapter` |
+| `env` | `hasApiKey`, `apiKeyEnvVars`, `apiKeyEnvVarsFor` — detect provider keys from the environment |
+
+Everything is re-exported from the package root.
+
+### swoosh-router — type definitions
+
+```ts
+type ModelModality = "text" | "image" | "audio" | "video" | "pdf" | "file";
+type RoutingPreference = "cheapest" | "fastest" | "best_quality" | "balanced";
+type LatencyClass = "fast" | "standard" | "slow";
+/**
+ * A capability a model has beyond its input/output modalities. The well-known
+ * values are typed for autocomplete, but the set is open — providers and
+ * catalogs may surface their own (e.g. "prompt_caching", "json_mode").
+ */
+type ModelFeature = "structured_output" | "tools" | "reasoning" | "attachments" | "web_search" | (string & {});
+interface ModelPricing {
+    readonly inputPerMillionTokens?: number;
+    readonly outputPerMillionTokens?: number;
+}
+interface ModelLimits {
+    readonly contextTokens?: number;
+    readonly outputTokens?: number;
+}
+interface ModelCapability {
+    readonly providerId: string;
+    readonly providerName: string;
+    readonly modelId: string;
+    readonly modelName: string;
+    readonly inputModalities: readonly ModelModality[];
+    readonly outputModalities: readonly ModelModality[];
+    readonly features: readonly ModelFeature[];
+    readonly limits: ModelLimits;
+    readonly pricing: ModelPricing;
+    readonly releaseDate?: string;
+    readonly lastUpdated?: string;
+    readonly latencyClass?: LatencyClass;
+    readonly qualityScore?: number;
+    /**
+     * Per-domain benchmark scores, an open map (e.g. `{ swe_bench: 0.65, gpqa: 0.88,
+     * lmarena_elo: 1320 }`). Values are interpreted per key by whoever reads them —
+     * see the `byBenchmark` policy. models.dev does not provide these; enrich via
+     * `swoosh-capabilities` or your own overrides.
+     */
+    readonly benchmarks?: Readonly<Record<string, number>>;
+}
+interface TaskConstraints {
+    readonly maxCostUsd?: number;
+    readonly maxLatencyClass?: LatencyClass;
+    readonly allowedProviderIds?: readonly string[];
+    readonly deniedProviderIds?: readonly string[];
+    readonly preferredProviderIds?: readonly string[];
+    readonly allowFallbacks?: boolean;
+}
+interface TaskRequest<Input = unknown> {
+    readonly task: string;
+    readonly input: Input;
+    readonly inputModalities: readonly ModelModality[];
+    readonly outputModalities?: readonly ModelModality[];
+    readonly estimatedInputTokens?: number;
+    readonly estimatedOutputTokens?: number;
+    readonly requiresFeatures?: readonly ModelFeature[];
+    readonly preference?: RoutingPreference | RoutingPolicy;
+    readonly constraints?: TaskConstraints;
+}
+interface GenerateObjectRequest<Input = unknown> extends TaskRequest<Input> {
+    readonly schema?: unknown;
+    readonly prompt?: string;
+    readonly metadata?: Record<string, unknown>;
+}
+interface ProviderGenerateObjectRequest<Input = unknown> extends GenerateObjectRequest<Input> {
+    readonly model: ModelCapability;
+}
+interface GenerateTextRequest<Input = unknown> extends TaskRequest<Input> {
+    readonly prompt: string;
+    readonly metadata?: Record<string, unknown>;
+}
+interface ProviderGenerateTextRequest<Input = unknown> extends GenerateTextRequest<Input> {
+    readonly model: ModelCapability;
+}
+interface ProviderAdapter {
+    readonly providerId: string;
+    readonly name?: string;
+    isAvailable?(): boolean;
+    generateObject?<Input, Output>(request: ProviderGenerateObjectRequest<Input>): Promise<Output>;
+    generateText?<Input>(request: ProviderGenerateTextRequest<Input>): Promise<string>;
+}
+interface CapabilityCatalog {
+    listCapabilities(): Promise<readonly ModelCapability[]>;
+}
+interface RejectedModel {
+    readonly providerId: string;
+    readonly modelId: string;
+    readonly reason: string;
+}
+interface RankedModel {
+    readonly capability: ModelCapability;
+    readonly score: number;
+    readonly reason: string;
+    readonly estimatedCostUsd?: number;
+}
+interface RoutePlan {
+    readonly task: string;
+    readonly preference: RoutingPreference | "custom";
+    readonly selected: RankedModel;
+    readonly fallbacks: readonly RankedModel[];
+    readonly rejected: readonly RejectedModel[];
+    readonly estimate: {
+        readonly inputTokens: number;
+        readonly outputTokens: number;
+        readonly costUsd?: number;
+    };
+}
+interface RouterAttempt {
+    readonly providerId: string;
+    readonly modelId: string;
+    readonly ok: boolean;
+    readonly error?: string;
+}
+interface RouterRunResult<Output> {
+    readonly output: Output;
+    readonly plan: RoutePlan;
+    readonly attempts: readonly RouterAttempt[];
+}
+interface RoutingPolicyContext {
+    readonly request: TaskRequest;
+    readonly candidates: readonly RankedModel[];
+}
+type RoutingPolicy = (context: RoutingPolicyContext) => readonly RankedModel[] | Promise<readonly RankedModel[]>;
+declare class ModelRouterError extends Error {
+    readonly cause?: unknown | undefined;
+    constructor(message: string, cause?: unknown | undefined);
+}
+
+declare class StaticCapabilityCatalog implements CapabilityCatalog {
+    private readonly capabilities;
+    constructor(capabilities: readonly ModelCapability[]);
+    listCapabilities(): Promise<readonly ModelCapability[]>;
+}
+declare const createStaticCapabilityCatalog: (capabilities: readonly ModelCapability[]) => CapabilityCatalog;
+/**
+ * Build a catalog from any loader — a database query, an internal API, a cached
+ * file. This is the bring-your-own-source seam: opt out of models.dev entirely
+ * while still producing the canonical `ModelCapability` shape the router expects.
+ * The loader may be sync or async; failures become a `ModelRouterError`.
+ *
+ * If your rows are already in models.dev's JSON shape, run them through
+ * `normalizeModelsDevCatalog` inside the loader to map them to `ModelCapability`.
+ */
+declare const createCapabilityCatalog: (load: () => Promise<readonly ModelCapability[]> | readonly ModelCapability[]) => CapabilityCatalog;
+/**
+ * Scope any catalog down to the models you can actually use, declared once at
+ * construction rather than per request. Pull full configs from a broad catalog
+ * (e.g. models.dev) and intersect it with what you have access to.
+ *
+ * `filter` is either a predicate, or an allowlist of `"providerId/modelId"`
+ * keys (a bare `"modelId"` matches across providers). The filter runs on every
+ * `listCapabilities()` call, so a predicate that reads live state stays current.
+ */
+declare const filterCapabilityCatalog: (catalog: CapabilityCatalog, filter: ((capability: ModelCapability) => boolean) | readonly string[]) => CapabilityCatalog;
+/**
+ * A partial enrichment for one model, keyed by `providerId` + `modelId`. Use it
+ * to add capabilities a base catalog omits — e.g. tagging `web_search`, or
+ * supplying `latencyClass` / `qualityScore`, which models.dev does not carry.
+ */
+type CapabilityOverride = Partial<Omit<ModelCapability, "providerId" | "modelId">> & Pick<ModelCapability, "providerId" | "modelId">;
+/**
+ * Enrich a base capability list with overrides matched on `providerId/modelId`.
+ * `features` are unioned; `limits` and `pricing` are shallow-merged; other
+ * fields replace. Overrides with no matching base model are ignored (to add a
+ * net-new model, concatenate it into the base array instead).
+ */
+declare const mergeCapabilities: (base: readonly ModelCapability[], overrides: readonly CapabilityOverride[]) => readonly ModelCapability[];
+declare class ModelsDevCapabilityCatalog implements CapabilityCatalog {
+    private readonly url;
+    private readonly fetcher;
+    constructor(url?: string, fetcher?: typeof fetch);
+    listCapabilities(): Promise<readonly ModelCapability[]>;
+}
+declare const normalizeModelsDevCatalog: (catalog: unknown) => readonly ModelCapability[];
+
+interface ByBenchmarkOptions {
+    /** Drop candidates scoring below this (and any with no score). */
+    readonly minimum?: number;
+}
+/**
+ * Rank candidates by a benchmark — highest first. `scorer` is either a benchmark
+ * key (read from `capability.benchmarks[key]`) or a function that computes a
+ * score from the capability, so you can blend several benchmarks:
+ *
+ *     byBenchmark("swe_bench")
+ *     byBenchmark((c) => 0.7 * (c.benchmarks?.swe_bench ?? 0) + 0.3 * (c.benchmarks?.gpqa ?? 0))
+ *
+ * Pass it as a request `preference`. Candidates with no score sort last (and are
+ * dropped entirely when `minimum` is set).
+ */
+declare const byBenchmark: (scorer: string | ((capability: ModelCapability) => number | undefined), options?: ByBenchmarkOptions) => RoutingPolicy;
+declare const estimatedCostUsd: (capability: ModelCapability, inputTokens: number, outputTokens: number) => number | undefined;
+declare const qualityScore: (capability: ModelCapability) => number;
+declare const namedPolicy: (preference: RoutingPreference, preferredProviderIds?: readonly string[]) => RoutingPolicy;
+
+type LoadBalanceStrategy = "round-robin" | "random";
+interface LoadBalanceOptions {
+    /** Rotate selection among the top N candidates. Defaults to all of them. */
+    readonly across?: number;
+    /** How to pick within the top N each call. Defaults to `"round-robin"`. */
+    readonly strategy?: LoadBalanceStrategy;
+}
+/**
+ * Spread requests across the top-N candidates instead of always selecting #1 —
+ * e.g. "cheapest, but cycle through the two cheapest providers." Wraps a base
+ * preference or policy: it ranks first, then this rotates which of the top
+ * `across` is selected on each call. The remaining candidates stay as ordered
+ * fallbacks, so failover still works.
+ *
+ * Stateful by design — the returned policy holds a round-robin cursor, so reuse
+ * one instance across requests rather than creating it per call.
+ *
+ *     const router = new ModelRouter({ catalog, providers });
+ *     const balanced = loadBalance("cheapest", { across: 2 });
+ *     await router.run({ ...request, preference: balanced }); // 1st of the two cheapest
+ *     await router.run({ ...request, preference: balanced }); // 2nd of the two cheapest
+ */
+declare const loadBalance: (base: RoutingPreference | RoutingPolicy, options?: LoadBalanceOptions) => RoutingPolicy;
+/**
+ * A round-robin iterator over a fixed list — returns the next item each call,
+ * wrapping around. Handy for rotating API keys (or endpoints, accounts) within
+ * a single provider adapter to spread rate limits:
+ *
+ *     const nextKey = roundRobin([process.env.OPENAI_KEY_A!, process.env.OPENAI_KEY_B!]);
+ *     createCallbackProviderAdapter({
+ *       providerId: "openai",
+ *       generateObject: ({ prompt, model }) => callOpenAI(prompt, model.modelId, nextKey()),
+ *     });
+ */
+declare const roundRobin: <T>(items: readonly T[]) => (() => T);
+
+interface ModelRouterOptions {
+    readonly catalog: CapabilityCatalog;
+    readonly providers: readonly ProviderAdapter[];
+    readonly defaultPreference?: RoutingPreference;
+}
+declare class ModelRouter {
+    private readonly options;
+    private readonly providers;
+    constructor(options: ModelRouterOptions);
+    plan<Input>(request: TaskRequest<Input>): Promise<RoutePlan>;
+    run<Input, Output>(request: GenerateObjectRequest<Input>): Promise<RouterRunResult<Output>>;
+    runText<Input>(request: GenerateTextRequest<Input>): Promise<RouterRunResult<string>>;
+    generateObject<Input, Output>(request: GenerateObjectRequest<Input>): Promise<Output>;
+    generateText<Input>(request: GenerateTextRequest<Input>): Promise<string>;
+    private executePlan;
+}
+
+interface CallbackProviderOptions {
+    readonly providerId: string;
+    readonly name?: string;
+    readonly isAvailable?: () => boolean;
+    readonly generateObject?: (request: ProviderGenerateObjectRequest) => unknown;
+    readonly generateText?: (request: ProviderGenerateTextRequest) => Promise<string> | string;
+}
+declare const createCallbackProviderAdapter: (options: CallbackProviderOptions) => ProviderAdapter;
+
+/**
+ * Conventional environment-variable names that hold each provider's API key,
+ * keyed by the provider id used in capability catalogs (matching models.dev).
+ * Several providers accept more than one conventional name; the first present
+ * one counts. Extend or override this map for providers not listed here.
+ */
+declare const apiKeyEnvVars: Record<string, readonly string[]>;
+interface HasApiKeyOptions {
+    /** Environment source. Defaults to `process.env` (or `{}` where unavailable). */
+    readonly env?: Record<string, string | undefined>;
+    /** Override the env-var name(s) to check for this provider. */
+    readonly vars?: readonly string[];
+}
+/**
+ * The env-var name(s) checked for a provider. Falls back to a derived
+ * `<PROVIDER>_API_KEY` name for providers not in {@link apiKeyEnvVars}
+ * (e.g. `"gemini"` → `"GEMINI_API_KEY"`).
+ */
+declare const apiKeyEnvVarsFor: (providerId: string) => readonly string[];
+/**
+ * Whether an API key for `providerId` is present in the environment. Pairs with
+ * a provider adapter's `isAvailable`:
+ *
+ *     createCallbackProviderAdapter({
+ *       providerId: "openai",
+ *       isAvailable: () => hasApiKey("openai"),
+ *       generateObject,
+ *     });
+ *
+ * Reads `process.env` by default (guarded for non-Node runtimes); pass `env` to
+ * use a different source, or `vars` to override the variable names.
+ */
+declare const hasApiKey: (providerId: string, options?: HasApiKeyOptions) => boolean;
+
+export { type ByBenchmarkOptions, type CallbackProviderOptions, type CapabilityCatalog, type CapabilityOverride, type GenerateObjectRequest, type GenerateTextRequest, type HasApiKeyOptions, type LatencyClass, type LoadBalanceOptions, type LoadBalanceStrategy, type ModelCapability, type ModelFeature, type ModelLimits, type ModelModality, type ModelPricing, ModelRouter, ModelRouterError, type ModelRouterOptions, ModelsDevCapabilityCatalog, type ProviderAdapter, type ProviderGenerateObjectRequest, type ProviderGenerateTextRequest, type RankedModel, type RejectedModel, type RoutePlan, type RouterAttempt, type RouterRunResult, type RoutingPolicy, type RoutingPolicyContext, type RoutingPreference, StaticCapabilityCatalog, type TaskConstraints, type TaskRequest, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, createCallbackProviderAdapter, createCapabilityCatalog, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, loadBalance, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, qualityScore, roundRobin };
+```
+
+
+---
+
+
+## swoosh-capabilities
+
+> Curated, enriched model dataset (models.dev ∪ web_search / latency / quality / benchmarks).
+
+Install: `npm install swoosh-capabilities` · Source: https://github.com/acalejos/swoosh/tree/main/packages/capabilities
+
+# swoosh-capabilities
+
+A curated, ready-to-use model-capability dataset for [`swoosh-router`](../model-router) — the models.dev catalog, narrowed to major providers and **enriched with the things models.dev doesn't carry**: `web_search` support, latency classes, quality scores (which `fastest` / `best_quality` need), and per-domain `benchmarks` (which `byBenchmark` ranks on).
+
+```sh
+npm install swoosh-capabilities
+```
+
+```ts
+import { ModelRouter } from "swoosh-router";
+import { defaultCatalog } from "swoosh-capabilities";
+
+const router = new ModelRouter({
+  catalog: defaultCatalog(), // bundled snapshot — no network, no API keys
+  providers: [/* your adapters */],
+});
+```
+
+## What it exports
+
+| Export | What |
+| --- | --- |
+| `defaultCatalog()` | A `CapabilityCatalog` backed by the bundled snapshot (offline, synchronous). |
+| `capabilities` | The raw `ModelCapability[]` dataset. |
+| `defaultOverrides` | The curated enrichment layer (also usable with `mergeCapabilities` on a live catalog). |
+| `meta` | `{ source, generatedAt, count }` for the bundled snapshot. |
+
+## How it's built
+
+`bun run refresh` (see [scripts/build.ts](scripts/build.ts)) pulls `models.dev/api.json`, normalizes it via `swoosh-router`'s `normalizeModelsDevCatalog`, narrows it to a major-provider allowlist (`SWOOSH_PROVIDERS` to override), merges [src/overrides.ts](src/overrides.ts) with `mergeCapabilities`, sorts deterministically, and writes `src/capabilities.generated.json`.
+
+CI runs this on a schedule and opens a PR with the diff ([ci/refresh-capabilities.yml](ci/refresh-capabilities.yml)) — refreshes are **reviewed, never auto-merged**, so a models.dev change can't silently alter routing.
+
+## Adding enrichment
+
+Edit [src/overrides.ts](src/overrides.ts) — small, reviewed entries keyed by `providerId/modelId`, citing the provider doc/pricing source in the PR. **Don't auto-scrape provider docs**: doc HTML rots silently and would emit wrong data. Per-provider scrapers, if ever added, should be human-run helpers whose output a reviewer eyeballs before commit.
+
+Prefer live data plus overrides instead of the bundled snapshot? Use the primitive directly:
+
+```ts
+import { ModelsDevCapabilityCatalog, createCapabilityCatalog, mergeCapabilities } from "swoosh-router";
+import { defaultOverrides } from "swoosh-capabilities";
+
+const live = new ModelsDevCapabilityCatalog();
+const enriched = createCapabilityCatalog(async () =>
+  mergeCapabilities(await live.listCapabilities(), defaultOverrides),
+);
+```
+
+### swoosh-capabilities — type definitions
+
+```ts
+import { CapabilityOverride, ModelCapability, CapabilityCatalog } from 'swoosh-router';
+
+/**
+ * Curated enrichment layered over the models.dev base — the capabilities
+ * models.dev does not carry. Keep entries small and reviewed; each is matched
+ * to a base model by `providerId/modelId`. Sources should be cited in the PR
+ * that adds them (provider docs, pricing pages), not scraped automatically.
+ *
+ * Four kinds of enrichment live here:
+ *   • `features` models.dev omits — notably `"web_search"`.
+ *   • `latencyClass` — models.dev has no latency signal; swoosh's "fastest" needs it.
+ *   • `qualityScore` — a 0–10 hand rank; swoosh's "best_quality" falls back to a
+ *     heuristic without it.
+ *   • `benchmarks` — per-domain scores for the `byBenchmark` policy. Values below
+ *     are representative seeds; CI should refresh them from a cited source
+ *     (Artificial Analysis, LMArena Elo, model-card GPQA/SWE-bench), never scraped.
+ */
+declare const defaultOverrides: readonly CapabilityOverride[];
+
+/** When the bundled snapshot was generated, and from where. */
+declare const meta: {
+    readonly source: string;
+    readonly generatedAt: string;
+    readonly count: number;
+};
+/** The bundled, enriched capability dataset (models.dev ∪ curated overrides). */
+declare const capabilities: readonly ModelCapability[];
+/** A ready-to-use catalog backed by the bundled dataset — no network, no keys. */
+declare const defaultCatalog: () => CapabilityCatalog;
+
+export { capabilities, defaultCatalog, defaultOverrides, meta };
+```
+
+
+---
+
+
+## swoosh-judge
+
+> Dynamic policies: classify the prompt with an LLM judge, route by the verdict.
+
+Install: `npm install swoosh-judge` · Source: https://github.com/acalejos/swoosh/tree/main/packages/judge
+
+# swoosh-judge
+
+Dynamic routing policies for [`swoosh-router`](../model-router). Classify each request's prompt with an LLM judge (structured output), then route by the verdict — cheap models for small talk, top models for hard problems, search-capable models for current events.
+
+```sh
+npm install swoosh-judge
+```
+
+```ts
+import { ModelRouter } from "swoosh-router";
+import { byBenchmark } from "swoosh-router";
+import { llmJudgePolicy } from "swoosh-judge";
+
+type Kind = "chat" | "coding" | "research";
+
+const smart = llmJudgePolicy<Kind>({
+  // Your structured-output classifier — route the judge through a cheap model.
+  classify: ({ prompt }) => judge.generateObject({ schema: KindSchema, prompt }),
+  route: {
+    chat: "cheapest",
+    coding: byBenchmark("swe_bench"),
+    research: ({ candidates }) => candidates.filter((c) => c.capability.features.includes("web_search")),
+  },
+  fallback: "balanced",     // used if classify throws or returns an unmapped verdict
+});
+
+await router.run({ ...request, preference: smart });
+```
+
+## How it works
+
+`llmJudgePolicy` returns an ordinary `RoutingPolicy` — async, since it awaits your classifier. The verdict picks a base preference/policy from `route`; the result is still a ranked candidate list, so fallback, constraints, and `plan()` inspection all work unchanged. `plan.preference` reports `"custom"`.
+
+- **You supply the judge.** `classify` is your call (sync or async). The package adds no LLM dependency — route the judge itself through a cheap swoosh model if you like.
+- **Verdicts are cached** by prompt signature (the judge costs latency + tokens). On by default; `cache: false` to disable, or `cache: { key, max }` to tune.
+- **Best-effort prompt.** The classifier receives `{ prompt, request }`, where `prompt` is `request.prompt` if present, else a stringified `request.input` — so it works with `plan`, `run`, and `runText`.
+
+## Options
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `classify` | `(input) => Verdict \| Promise<Verdict>` | Your structured-output classifier. |
+| `route` | `Record<Verdict, RoutingPreference \| RoutingPolicy>` | Verdict → base ranking. |
+| `fallback` | `RoutingPreference \| RoutingPolicy` | On error/unmapped verdict. Defaults to `"balanced"`. |
+| `cache` | `boolean \| { key?, max? }` | Cache verdicts by prompt. Defaults to on. |
+
+### swoosh-judge — type definitions
+
+```ts
+import { TaskRequest, RoutingPreference, RoutingPolicy } from 'swoosh-router';
+
+/** What the classifier sees: the request, plus a best-effort prompt string. */
+interface JudgeInput {
+    readonly prompt: string;
+    readonly request: TaskRequest;
+}
+interface LlmJudgePolicyOptions<Verdict extends string> {
+    /**
+     * Classify the request into one of your categories. This is your LLM call,
+     * returning structured output (the category). Sync or async. You can route
+     * the judge itself through a cheap swoosh model.
+     */
+    readonly classify: (input: JudgeInput) => Promise<Verdict> | Verdict;
+    /** Map each category to a base preference or policy. */
+    readonly route: Record<Verdict, RoutingPreference | RoutingPolicy>;
+    /** Used when classify throws or returns an unmapped verdict. Defaults to `"balanced"`. */
+    readonly fallback?: RoutingPreference | RoutingPolicy;
+    /**
+     * Cache verdicts so identical prompts aren't re-judged (the judge call costs
+     * latency + tokens). On by default; pass `false` to disable, or an object to
+     * customize the cache key / max size.
+     */
+    readonly cache?: boolean | {
+        readonly key?: (prompt: string) => string;
+        readonly max?: number;
+    };
+}
+/**
+ * A dynamic routing policy that classifies each request's prompt with an LLM
+ * judge and routes by the verdict. The verdict comes from your structured-output
+ * classifier; the policy result is still an ordinary ranked candidate list, so
+ * failover and the rest of the router work unchanged.
+ *
+ *     const smart = llmJudgePolicy({
+ *       classify: ({ prompt }) => judge.generateObject({ schema: Kind, prompt }),
+ *       route: { coding: "best_quality", chat: "cheapest" },
+ *     });
+ *     await router.run({ ...request, preference: smart });
+ */
+declare const llmJudgePolicy: <Verdict extends string>(options: LlmJudgePolicyOptions<Verdict>) => RoutingPolicy;
+
+export { type JudgeInput, type LlmJudgePolicyOptions, llmJudgePolicy };
+```
+
+
+---
+
+
+## swoosh-ai-sdk
+
+> Vercel AI SDK provider adapter.
+
+Install: `npm install swoosh-ai-sdk` · Source: https://github.com/acalejos/swoosh/tree/main/packages/ai-sdk
+
+# swoosh-ai-sdk
+
+Vercel AI SDK provider adapter for [`swoosh-router`](../model-router). Kept separate so the core router stays free of the `ai` dependency — install this only if you route through the AI SDK.
+
+```sh
+npm install swoosh-ai-sdk ai
+```
+
+```ts
+import { ModelRouter, ModelsDevCapabilityCatalog } from "swoosh-router";
+import { createAiSdkProviderAdapter } from "swoosh-ai-sdk";
+import { google } from "@ai-sdk/google";
+import { generateObject } from "ai";
+
+const router = new ModelRouter({
+  catalog: new ModelsDevCapabilityCatalog(),
+  providers: [
+    createAiSdkProviderAdapter({
+      providerId: "google",
+      models: { "gemini-2.5-flash": google("gemini-2.5-flash") },
+      generateObject: (request) => generateObject(request as never),
+    }),
+  ],
+});
+```
+
+`models` maps each `modelId` from the catalog to its AI SDK model instance; the router picks the capability and this adapter resolves and calls it. `ai` is a peer dependency.
+
+### swoosh-ai-sdk — type definitions
+
+```ts
+import { ProviderAdapter } from 'swoosh-router';
+
+interface AiSdkProviderOptions {
+    readonly providerId: string;
+    readonly name?: string;
+    readonly isAvailable?: () => boolean;
+    /**
+     * AI SDK model instances keyed by `modelId`, or a resolver that builds one
+     * from a `modelId` (e.g. `(id) => openai(id)`). The resolver form is what lets
+     * a provider serve any model in the catalog without enumerating them.
+     */
+    readonly models: Record<string, unknown> | ((modelId: string) => unknown);
+    readonly generateObject: (request: {
+        readonly model: unknown;
+        readonly schema?: unknown;
+        readonly prompt?: string;
+        readonly input?: unknown;
+        readonly metadata?: Record<string, unknown>;
+    }) => Promise<unknown>;
+    readonly generateText?: (request: {
+        readonly model: unknown;
+        readonly prompt?: string;
+        readonly input?: unknown;
+        readonly metadata?: Record<string, unknown>;
+    }) => Promise<string>;
+}
+/**
+ * Wraps Vercel AI SDK calls as a swoosh provider adapter. The router selects a
+ * `ModelCapability`; this resolves the matching AI SDK model from `models` by
+ * `modelId` and forwards the request. Provide `generateText` too for `runText`.
+ */
+declare const createAiSdkProviderAdapter: (options: AiSdkProviderOptions) => ProviderAdapter;
+
+export { type AiSdkProviderOptions, createAiSdkProviderAdapter };
+```
+
+
+---
+
+
+# Examples
+
+All examples run offline with simulated providers (no API keys). Run any with `bun packages/model-router/examples/<file>`.
+
+
+---
+
+
+## 01-quickstart
+
+Route a support ticket to the best available model and get structured output.
+
+```ts
+// Route a support ticket to the best available model and get structured output.
+// Run from the repo root: bun packages/model-router/examples/01-quickstart.ts
+import {
+  createCallbackProviderAdapter,
+  createStaticCapabilityCatalog,
+  ModelRouter,
+} from "swoosh-router";
+import { exampleCatalog } from "./shared/catalog";
+import { printAttempts, printPlan } from "./shared/print";
+
+interface Triage {
+  category: "billing" | "bug" | "how-to";
+  urgency: "low" | "high";
+}
+
+// Simulated providers. Swap these for createAiSdkProviderAdapter in a real app.
+const providers = [
+  createCallbackProviderAdapter({
+    providerId: "google",
+    generateObject: () => ({ category: "billing", urgency: "high" }) satisfies Triage,
+  }),
+  createCallbackProviderAdapter({
+    providerId: "anthropic",
+    generateObject: () => ({ category: "billing", urgency: "high" }) satisfies Triage,
+  }),
+];
+
+const router = new ModelRouter({
+  catalog: createStaticCapabilityCatalog(exampleCatalog),
+  providers,
+  defaultPreference: "balanced",
+});
+
+const ticket = "I was charged twice for my subscription this month. Please fix this today.";
+
+const result = await router.run<string, Triage>({
+  task: "support.triage",
+  input: ticket,
+  prompt: `Classify this support ticket: ${ticket}`,
+  inputModalities: ["text"],
+  requiresFeatures: ["structured_output"],
+});
+
+printPlan(result.plan);
+printAttempts(result.attempts);
+console.log("output     ", result.output);
+```
+
+
+---
+
+
+## 02-cost-guardrails
+
+Summarize a long document with a hard budget. Models whose estimated cost exceeds maxCostUsd are rejected at planning time, before any tokens are spent.
+
+```ts
+// Summarize a long document with a hard budget. Models whose estimated cost
+// exceeds maxCostUsd are rejected at planning time, before any tokens are spent.
+// Run from the repo root: bun packages/model-router/examples/02-cost-guardrails.ts
+import {
+  createCallbackProviderAdapter,
+  createStaticCapabilityCatalog,
+  ModelRouter,
+} from "swoosh-router";
+import { exampleCatalog } from "./shared/catalog";
+import { printPlan } from "./shared/print";
+
+const router = new ModelRouter({
+  catalog: createStaticCapabilityCatalog(exampleCatalog),
+  providers: ["google", "anthropic", "openai", "mistral", "local"].map((providerId) =>
+    createCallbackProviderAdapter({ providerId }),
+  ),
+});
+
+const plan = await router.plan({
+  task: "report.summarize",
+  input: "(a 400-page incident report)",
+  inputModalities: ["text"],
+  requiresFeatures: ["structured_output"],
+  estimatedInputTokens: 150_000,
+  estimatedOutputTokens: 4_000,
+  preference: "cheapest",
+  constraints: { maxCostUsd: 0.1 },
+});
+
+// claude-opus-4-8 is rejected: 150k input tokens at $15/M already costs $2.25.
+// gpt-4o and mistral-large are rejected on context window, not cost.
+printPlan(plan);
+```
+
+
+---
+
+
+## 03-multimodal-routing
+
+Extract line items from a photographed receipt. Declaring image input automatically filters out text-only models — no manual model lists.
+
+```ts
+// Extract line items from a photographed receipt. Declaring image input
+// automatically filters out text-only models — no manual model lists.
+// Run from the repo root: bun packages/model-router/examples/03-multimodal-routing.ts
+import {
+  createCallbackProviderAdapter,
+  createStaticCapabilityCatalog,
+  ModelRouter,
+} from "swoosh-router";
+import { exampleCatalog } from "./shared/catalog";
+import { printPlan } from "./shared/print";
+
+interface Receipt {
+  merchant: string;
+  totalCents: number;
+  lineItems: { label: string; cents: number }[];
+}
+
+const router = new ModelRouter({
+  catalog: createStaticCapabilityCatalog(exampleCatalog),
+  providers: ["google", "anthropic", "openai", "mistral", "local"].map((providerId) =>
+    createCallbackProviderAdapter({
+      providerId,
+      generateObject: () =>
+        ({
+          merchant: "Blue Bottle Coffee",
+          totalCents: 1250,
+          lineItems: [
+            { label: "Latte", cents: 650 },
+            { label: "Croissant", cents: 600 },
+          ],
+        }) satisfies Receipt,
+    }),
+  ),
+});
+
+const result = await router.run<{ imageBase64: string }, Receipt>({
+  task: "receipt.extract",
+  input: { imageBase64: "(receipt photo)" },
+  prompt: "Extract the merchant, total, and line items from this receipt.",
+  inputModalities: ["text", "image"],
+  requiresFeatures: ["structured_output"],
+  preference: "cheapest",
+});
+
+// mistral-large and llama-3.3-70b are rejected: text-only input.
+printPlan(result.plan);
+console.log("output     ", result.output);
+```
+
+
+---
+
+
+## 04-custom-policy
+
+Routing policies are plain functions. This one keeps traffic inside EU-hosted providers for data-residency reasons, then picks the cheapest.
+
+```ts
+// Routing policies are plain functions. This one keeps traffic inside
+// EU-hosted providers for data-residency reasons, then picks the cheapest.
+// Run from the repo root: bun packages/model-router/examples/04-custom-policy.ts
+import {
+  createCallbackProviderAdapter,
+  createStaticCapabilityCatalog,
+  ModelRouter,
+  type RoutingPolicy,
+} from "swoosh-router";
+import { exampleCatalog } from "./shared/catalog";
+import { printPlan } from "./shared/print";
+
+const EU_HOSTED = new Set(["mistral", "local"]);
+
+const euResidencyThenCheapest: RoutingPolicy = ({ candidates }) =>
+  candidates
+    .filter((candidate) => EU_HOSTED.has(candidate.capability.providerId))
+    .sort(
+      (left, right) =>
+        (left.estimatedCostUsd ?? Number.POSITIVE_INFINITY) -
+        (right.estimatedCostUsd ?? Number.POSITIVE_INFINITY),
+    );
+
+const router = new ModelRouter({
+  catalog: createStaticCapabilityCatalog(exampleCatalog),
+  providers: ["google", "anthropic", "openai", "mistral", "local"].map((providerId) =>
+    createCallbackProviderAdapter({ providerId }),
+  ),
+});
+
+const plan = await router.plan({
+  task: "contract.redline",
+  input: "(an employment contract)",
+  inputModalities: ["text"],
+  preference: euResidencyThenCheapest,
+});
+
+// llama-3.3-70b wins on price; mistral-large is the fallback.
+// US-hosted candidates never make it into the route list.
+printPlan(plan);
+```
+
+
+---
+
+
+## 05-outage-fallback
+
+When the selected provider fails, execution moves down the ranked route list automatically. The result includes the full attempt history.
+
+```ts
+// When the selected provider fails, execution moves down the ranked route
+// list automatically. The result includes the full attempt history.
+// Run from the repo root: bun packages/model-router/examples/05-outage-fallback.ts
+import {
+  createCallbackProviderAdapter,
+  createStaticCapabilityCatalog,
+  ModelRouter,
+} from "swoosh-router";
+import { exampleCatalog } from "./shared/catalog";
+import { printAttempts, printPlan } from "./shared/print";
+
+const router = new ModelRouter({
+  catalog: createStaticCapabilityCatalog(exampleCatalog),
+  providers: [
+    createCallbackProviderAdapter({
+      providerId: "google",
+      generateObject: () => {
+        throw new Error("503 service unavailable");
+      },
+    }),
+    createCallbackProviderAdapter({
+      providerId: "anthropic",
+      generateObject: () => {
+        throw new Error("429 rate limited");
+      },
+    }),
+    createCallbackProviderAdapter({
+      providerId: "openai",
+      generateObject: () => ({ summary: "Q3 revenue grew 14% quarter over quarter." }),
+    }),
+  ],
+});
+
+const result = await router.run<string, { summary: string }>({
+  task: "earnings.summarize",
+  input: "(earnings call transcript)",
+  prompt: "Summarize the key results in one sentence.",
+  inputModalities: ["text"],
+  requiresFeatures: ["structured_output"],
+  preference: "cheapest",
+});
+
+printPlan(result.plan);
+printAttempts(result.attempts);
+console.log("output     ", result.output);
+```
+
+
+---
+
+
+## 06-bring-your-own-catalog
+
+Opt out of models.dev: source the catalog from your own database (or any async loader) while still producing the canonical ModelCapability shape.
+
+```ts
+// Opt out of models.dev: source the catalog from your own database (or any
+// async loader) while still producing the canonical ModelCapability shape.
+// Run from the repo root: bun packages/model-router/examples/06-bring-your-own-catalog.ts
+import {
+  createCallbackProviderAdapter,
+  createCapabilityCatalog,
+  type ModelCapability,
+  ModelRouter,
+} from "swoosh-router";
+import { printPlan } from "./shared/print";
+
+// Pretend this is a table in your database. The "columns" are exactly the
+// ModelCapability fields — your row maps straight onto the interface.
+interface ModelRow {
+  provider: string;
+  model: string;
+  vision: boolean;
+  ctx: number;
+  inUsdPerM: number;
+  outUsdPerM: number;
+}
+
+const rows: ModelRow[] = [
+  { provider: "internal", model: "house-small", vision: false, ctx: 32_000, inUsdPerM: 0, outUsdPerM: 0 },
+  { provider: "internal", model: "house-large", vision: true, ctx: 200_000, inUsdPerM: 0.5, outUsdPerM: 1.5 },
+];
+
+const rowToCapability = (row: ModelRow): ModelCapability => ({
+  providerId: row.provider,
+  providerName: "Internal",
+  modelId: row.model,
+  modelName: row.model,
+  inputModalities: row.vision ? ["text", "image"] : ["text"],
+  outputModalities: ["text"],
+  features: row.vision
+    ? ["structured_output", "tools", "attachments"]
+    : ["structured_output", "tools"],
+  limits: { contextTokens: row.ctx },
+  pricing: { inputPerMillionTokens: row.inUsdPerM, outputPerMillionTokens: row.outUsdPerM },
+  latencyClass: "fast",
+});
+
+const router = new ModelRouter({
+  // No models.dev — load and map your own rows. Could be a DB query, an API, a file.
+  catalog: createCapabilityCatalog(async () => {
+    const fetched = await Promise.resolve(rows); // e.g. await db.select().from(models)
+    return fetched.map(rowToCapability);
+  }),
+  providers: ["internal"].map((providerId) => createCallbackProviderAdapter({ providerId })),
+});
+
+const plan = await router.plan({
+  task: "doc.summarize",
+  input: "(an internal document)",
+  inputModalities: ["text"],
+  preference: "cheapest",
+});
+
+// Routes purely against your own catalog — house-small wins on price.
+printPlan(plan);
+```
+
+
+---
+
+
+## 07-model-access
+
+Tell the router which models you actually have access to — declared once, not per request. A broad catalog (here the fixture; in production, models.dev) supplies the configs; you intersect it down to your accessible set.
+
+```ts
+// Tell the router which models you actually have access to — declared once,
+// not per request. A broad catalog (here the fixture; in production, models.dev)
+// supplies the configs; you intersect it down to your accessible set.
+// Run from the repo root: bun packages/model-router/examples/07-model-access.ts
+import {
+  createCallbackProviderAdapter,
+  createStaticCapabilityCatalog,
+  filterCapabilityCatalog,
+  hasApiKey,
+  ModelRouter,
+} from "swoosh-router";
+import { exampleCatalog } from "./shared/catalog";
+import { printPlan } from "./shared/print";
+
+// The full catalog lists models across google, anthropic, openai, mistral, local.
+const universe = createStaticCapabilityCatalog(exampleCatalog);
+
+// Option A — allowlist the exact models your account/contract permits.
+// Configs (pricing, limits, features) still come from the catalog; you only name ids.
+const accessible = filterCapabilityCatalog(universe, [
+  "google/gemini-2.5-flash",
+  "anthropic/claude-haiku-4-5",
+  "openai/gpt-4o",
+]);
+
+// Option B — gate whole providers by whether their API key is present.
+// hasApiKey looks up the conventional env var(s) per provider (GEMINI_API_KEY,
+// OPENAI_API_KEY, …). It reads process.env by default; here we inject a fake
+// env so the example is deterministic offline.
+const env = { GEMINI_API_KEY: "demo", OPENAI_API_KEY: "demo" }; // no ANTHROPIC_API_KEY
+const providers = ["google", "anthropic", "openai", "mistral", "local"].map((providerId) =>
+  createCallbackProviderAdapter({ providerId, isAvailable: () => hasApiKey(providerId, { env }) }),
+);
+
+const router = new ModelRouter({ catalog: accessible, providers });
+
+const plan = await router.plan({
+  task: "doc.classify",
+  input: "(a document)",
+  inputModalities: ["text"],
+  requiresFeatures: ["structured_output"],
+  preference: "cheapest",
+});
+
+// Only the three allowlisted models are even considered; claude-haiku is then
+// rejected because its key is missing — leaving gemini (selected) and gpt-4o.
+printPlan(plan);
+```
+
+
+---
+
+
+## 08-web-search
+
+Generate a quiz about current events — which needs a model that can search the web. Requiring the "web_search" feature filters the catalog to models whose API does live search; the adapter turns it on per provider.
+
+```ts
+// Generate a quiz about current events — which needs a model that can search
+// the web. Requiring the "web_search" feature filters the catalog to models
+// whose API does live search; the adapter turns it on per provider.
+// Run from the repo root: bun packages/model-router/examples/08-web-search.ts
+import {
+  createCallbackProviderAdapter,
+  createStaticCapabilityCatalog,
+  ModelRouter,
+} from "swoosh-router";
+import { exampleCatalog } from "./shared/catalog";
+import { printPlan } from "./shared/print";
+
+interface Quiz {
+  questions: { prompt: string; answer: string }[];
+}
+
+// In the fixture, google/gemini-2.5-flash and openai/gpt-4o are tagged with
+// "web_search"; the others are not. The adapter is where you actually enable
+// the provider's search tool (e.g. OpenAI's web_search tool, Gemini grounding).
+const providers = ["google", "anthropic", "openai", "mistral", "local"].map((providerId) =>
+  createCallbackProviderAdapter({
+    providerId,
+    generateObject: () =>
+      ({
+        questions: [
+          { prompt: "Which team won the most recent Formula 1 race?", answer: "(from live search)" },
+        ],
+      }) satisfies Quiz,
+  }),
+);
+
+const router = new ModelRouter({
+  catalog: createStaticCapabilityCatalog(exampleCatalog),
+  providers,
+});
+
+const result = await router.run<string, Quiz>({
+  task: "quiz.generate",
+  input: "Write 5 quiz questions about this week's sports headlines.",
+  prompt: "Write 5 quiz questions about this week's sports headlines, with answers.",
+  inputModalities: ["text"],
+  requiresFeatures: ["structured_output", "web_search"],
+  preference: "cheapest",
+});
+
+// Only gemini-2.5-flash and gpt-4o survive the web_search requirement;
+// claude, mistral, and llama are rejected for lacking it.
+printPlan(result.plan);
+console.log("output     ", JSON.stringify(result.output));
+```
+
+
+---
+
+
+## 09-load-balancing
+
+LiteLLM-style rotation, two ways:   • loadBalance — spread requests across the N cheapest providers, not just #1.   • roundRobin  — rotate API keys within one provider to spread rate limits.
+
+```ts
+// LiteLLM-style rotation, two ways:
+//   • loadBalance — spread requests across the N cheapest providers, not just #1.
+//   • roundRobin  — rotate API keys within one provider to spread rate limits.
+// Run from the repo root: bun packages/model-router/examples/09-load-balancing.ts
+import {
+  createCallbackProviderAdapter,
+  createStaticCapabilityCatalog,
+  loadBalance,
+  ModelRouter,
+  roundRobin,
+} from "swoosh-router";
+
+// Three image-generation models; replicate and openai are the two cheapest.
+const imageCatalog = createStaticCapabilityCatalog([
+  {
+    providerId: "replicate", providerName: "Replicate", modelId: "flux-schnell", modelName: "FLUX schnell",
+    inputModalities: ["text"], outputModalities: ["image"], features: [],
+    limits: {}, pricing: { outputPerMillionTokens: 3 }, latencyClass: "fast",
+  },
+  {
+    providerId: "openai", providerName: "OpenAI", modelId: "gpt-image-1", modelName: "GPT Image 1",
+    inputModalities: ["text"], outputModalities: ["image"], features: [],
+    limits: {}, pricing: { outputPerMillionTokens: 4 }, latencyClass: "standard",
+  },
+  {
+    providerId: "google", providerName: "Google", modelId: "imagen-4", modelName: "Imagen 4",
+    inputModalities: ["text"], outputModalities: ["image"], features: [],
+    limits: {}, pricing: { outputPerMillionTokens: 12 }, latencyClass: "standard",
+  },
+]);
+
+// openai rotates between two keys; we log which one each call used.
+const nextOpenAiKey = roundRobin(["openai-key-A", "openai-key-B"]);
+
+const router = new ModelRouter({
+  catalog: imageCatalog,
+  providers: ["replicate", "openai", "google"].map((providerId) =>
+    createCallbackProviderAdapter({
+      providerId,
+      generateObject: () => {
+        const key = providerId === "openai" ? ` (key ${nextOpenAiKey()})` : "";
+        return { url: `https://cdn.example/${providerId}.png`, via: providerId + key };
+      },
+    }),
+  ),
+});
+
+// Cheapest image gen — but cycle through the two cheapest providers.
+const balanced = loadBalance("cheapest", { across: 2 });
+
+for (let i = 1; i <= 4; i++) {
+  const result = await router.run<string, { url: string; via: string }>({
+    task: "image.generate",
+    input: "a watercolor fox",
+    prompt: "a watercolor fox",
+    inputModalities: ["text"],
+    outputModalities: ["image"],
+    preference: balanced,
+  });
+  console.log(`request ${i} → ${result.output.via}`);
+}
+// → replicate, openai (key A), replicate, openai (key B): providers alternate,
+//   and openai's two keys rotate across the calls that land on it.
+```
+
+
+---
+
+
+## 10-benchmark-routing
+
+Route by benchmark performance, not just price. byBenchmark ranks on a named benchmark — or a function that blends several, so you decide what "best" means.
+
+```ts
+// Route by benchmark performance, not just price. byBenchmark ranks on a named
+// benchmark — or a function that blends several, so you decide what "best" means.
+// Run from the repo root: bun packages/model-router/examples/10-benchmark-routing.ts
+import {
+  byBenchmark,
+  createCallbackProviderAdapter,
+  createStaticCapabilityCatalog,
+  type ModelCapability,
+  ModelRouter,
+} from "swoosh-router";
+import { printPlan } from "./shared/print";
+
+const model = (
+  providerId: string,
+  modelId: string,
+  benchmarks: Record<string, number>,
+): ModelCapability => ({
+  providerId, providerName: providerId, modelId, modelName: modelId,
+  inputModalities: ["text"], outputModalities: ["text"],
+  features: ["structured_output"], limits: { contextTokens: 200_000 },
+  pricing: { inputPerMillionTokens: 1, outputPerMillionTokens: 3 }, latencyClass: "standard",
+  benchmarks,
+});
+
+const catalog = createStaticCapabilityCatalog([
+  model("openai", "gpt-5", { swe_bench: 0.72, gpqa: 0.85 }),
+  model("anthropic", "claude-opus", { swe_bench: 0.78, gpqa: 0.84 }),
+  model("google", "gemini-pro", { swe_bench: 0.64, gpqa: 0.84 }),
+]);
+
+const router = new ModelRouter({
+  catalog,
+  providers: ["openai", "anthropic", "google"].map((p) => createCallbackProviderAdapter({ providerId: p })),
+});
+
+const base = {
+  task: "code.fix",
+  input: "patch this failing test",
+  inputModalities: ["text"] as const,
+  requiresFeatures: ["structured_output"] as const,
+};
+
+// 1) Single benchmark: best at SWE-bench → claude-opus.
+const sweBest = await router.plan({ ...base, preference: byBenchmark("swe_bench") });
+console.log("best @ swe_bench:");
+printPlan(sweBest);
+
+// 2) Composite: weight coding 70% / reasoning 30% → your own definition of "best".
+const blended = byBenchmark((c) => 0.7 * (c.benchmarks?.swe_bench ?? 0) + 0.3 * (c.benchmarks?.gpqa ?? 0));
+const blendedPlan = await router.plan({ ...base, preference: blended });
+console.log("\nbest @ 0.7·swe_bench + 0.3·gpqa:");
+printPlan(blendedPlan);
+```
+
+
+---
+
+
+## 11-llm-judge
+
+Dynamic routing: an LLM judge classifies each prompt, then the policy routes by the verdict — cheap models for chat, top models for coding, search models for research. The classifier returns structured output (the category).
+
+```ts
+// Dynamic routing: an LLM judge classifies each prompt, then the policy routes
+// by the verdict — cheap models for chat, top models for coding, search models
+// for research. The classifier returns structured output (the category).
+// Run from the repo root: bun packages/model-router/examples/11-llm-judge.ts
+import {
+  byBenchmark,
+  createCallbackProviderAdapter,
+  createStaticCapabilityCatalog,
+  type ModelCapability,
+  ModelRouter,
+} from "swoosh-router";
+import { llmJudgePolicy } from "swoosh-judge";
+import { printPlan } from "./shared/print";
+
+const model = (providerId: string, modelId: string, extra: Partial<ModelCapability>): ModelCapability => ({
+  providerId, providerName: providerId, modelId, modelName: modelId,
+  inputModalities: ["text"], outputModalities: ["text"], features: ["structured_output"],
+  limits: { contextTokens: 200_000 }, pricing: { inputPerMillionTokens: 1, outputPerMillionTokens: 3 },
+  latencyClass: "standard", ...extra,
+});
+
+const router = new ModelRouter({
+  catalog: createStaticCapabilityCatalog([
+    model("local", "tiny", { pricing: { inputPerMillionTokens: 0, outputPerMillionTokens: 0 } }),
+    model("anthropic", "opus", { qualityScore: 10, benchmarks: { swe_bench: 0.78 } }),
+    model("perplexity", "sonar", { features: ["structured_output", "web_search"] }),
+  ]),
+  providers: ["local", "anthropic", "perplexity"].map((p) => createCallbackProviderAdapter({ providerId: p })),
+});
+
+type Kind = "chat" | "coding" | "research";
+
+// Stand-in for a structured-output LLM call. In production this is e.g.
+// judge.generateObject({ schema: KindSchema, prompt }) routed through swoosh itself.
+let judgeCalls = 0;
+const classify = ({ prompt }: { prompt: string }): Kind => {
+  judgeCalls++;
+  if (/\b(code|bug|patch|function|test)\b/i.test(prompt)) return "coding";
+  if (/\b(latest|today|news|current|who won)\b/i.test(prompt)) return "research";
+  return "chat";
+};
+
+const smart = llmJudgePolicy<Kind>({
+  classify,
+  route: {
+    chat: "cheapest",
+    coding: byBenchmark("swe_bench"),
+    research: ({ candidates }) => candidates.filter((c) => c.capability.features.includes("web_search")),
+  },
+});
+
+for (const prompt of [
+  "just say hi back to me",
+  "patch this failing unit test",
+  "who won the game last night?",
+  "just say hi back to me", // repeat → served from the judge cache
+]) {
+  const plan = await router.plan({ task: "assist", input: prompt, inputModalities: ["text"], preference: smart });
+  console.log(`"${prompt.slice(0, 28)}…" → ${plan.selected.capability.providerId}/${plan.selected.capability.modelId}`);
+}
+console.log(`\njudge invoked ${judgeCalls}× for 4 requests (1 was cached)`);
+```

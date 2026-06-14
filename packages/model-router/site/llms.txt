@@ -1,0 +1,32 @@
+# swoosh
+
+> Just give me a model. Intent-driven, policy-driven model routing for TypeScript: declare what a task needs and how to choose; swoosh plans the best model, explains every rejection, and falls back automatically.
+
+swoosh is published as a set of unscoped npm packages (`swoosh-*`). Start with `swoosh-sdk` for the batteries-included drop-in, or compose the zero-dependency `swoosh-router` core directly. Each package page below embeds its full, generated TypeScript API.
+
+## Packages
+- [swoosh-sdk](https://acalejos.github.io/swoosh/api/swoosh-sdk.md): Batteries-included drop-in: createRouter(), auto-wired providers, re-exports everything.
+- [swoosh-router](https://acalejos.github.io/swoosh/api/swoosh-router.md): Zero-dependency core: intent + policy routing, inspectable plans, automatic fallback.
+- [swoosh-capabilities](https://acalejos.github.io/swoosh/api/swoosh-capabilities.md): Curated, enriched model dataset (models.dev ∪ web_search / latency / quality / benchmarks).
+- [swoosh-judge](https://acalejos.github.io/swoosh/api/swoosh-judge.md): Dynamic policies: classify the prompt with an LLM judge, route by the verdict.
+- [swoosh-ai-sdk](https://acalejos.github.io/swoosh/api/swoosh-ai-sdk.md): Vercel AI SDK provider adapter.
+
+## Examples
+Runnable, offline (simulated providers, no API keys):
+- [01-quickstart](https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/01-quickstart.ts): Route a support ticket to the best available model and get structured output.
+- [02-cost-guardrails](https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/02-cost-guardrails.ts): Summarize a long document with a hard budget. Models whose estimated cost exceeds maxCostUsd are rejected at planning time, before any tokens are spent.
+- [03-multimodal-routing](https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/03-multimodal-routing.ts): Extract line items from a photographed receipt. Declaring image input automatically filters out text-only models — no manual model lists.
+- [04-custom-policy](https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/04-custom-policy.ts): Routing policies are plain functions. This one keeps traffic inside EU-hosted providers for data-residency reasons, then picks the cheapest.
+- [05-outage-fallback](https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/05-outage-fallback.ts): When the selected provider fails, execution moves down the ranked route list automatically. The result includes the full attempt history.
+- [06-bring-your-own-catalog](https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/06-bring-your-own-catalog.ts): Opt out of models.dev: source the catalog from your own database (or any async loader) while still producing the canonical ModelCapability shape.
+- [07-model-access](https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/07-model-access.ts): Tell the router which models you actually have access to — declared once, not per request. A broad catalog (here the fixture; in production, models.dev) supplies the configs; you intersect it down to your accessible set.
+- [08-web-search](https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/08-web-search.ts): Generate a quiz about current events — which needs a model that can search the web. Requiring the "web_search" feature filters the catalog to models whose API does live search; the adapter turns it on per provider.
+- [09-load-balancing](https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/09-load-balancing.ts): LiteLLM-style rotation, two ways:   • loadBalance — spread requests across the N cheapest providers, not just #1.   • roundRobin  — rotate API keys within one provider to spread rate limits.
+- [10-benchmark-routing](https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/10-benchmark-routing.ts): Route by benchmark performance, not just price. byBenchmark ranks on a named benchmark — or a function that blends several, so you decide what "best" means.
+- [11-llm-judge](https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/11-llm-judge.ts): Dynamic routing: an LLM judge classifies each prompt, then the policy routes by the verdict — cheap models for chat, top models for coding, search models for research. The classifier returns structured output (the category).
+
+## Optional
+- [llms-full.txt](https://acalejos.github.io/swoosh/llms-full.txt): the entire documentation — every README, full type signatures, and all example sources — in a single file.
+- [GitHub repository](https://github.com/acalejos/swoosh)
+
+_Generated from source by `bun run docs`._
