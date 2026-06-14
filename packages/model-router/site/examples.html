@@ -1,0 +1,818 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>swoosh examples — just give me a model</title>
+<meta name="description" content="Eleven runnable, offline examples for swoosh: intent + policy routing, cost guardrails, multimodal, outage fallback, bring-your-own catalog, model access, web search, load balancing, benchmark routing, and an LLM judge." />
+<link rel="alternate" type="text/markdown" href="llms.txt" title="LLM-friendly docs (llms.txt)" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,800&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper: #f4f1ea;
+    --paper-dim: #efeadf;
+    --ink: #16140f;
+    --ink-soft: #6b6658;
+    --rule: #16140f;
+    --signal: #e8490f;
+    --go: #0c7a3e;
+    --hold: #b07c00;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+    --disp: "Bricolage Grotesque", sans-serif;
+    --serif: "Bricolage Grotesque", sans-serif; /* repointed: headings match the landing page */
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 84px; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 15px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--signal); color: var(--paper); }
+  a { color: var(--ink); }
+
+  /* ---------- top bar ---------- */
+  header {
+    position: sticky; top: 0; z-index: 50;
+    background: var(--paper);
+    border-bottom: 2px solid var(--rule);
+  }
+  .bar {
+    max-width: 1240px; margin: 0 auto; padding: 0 24px;
+    display: flex; align-items: center; justify-content: space-between; height: 68px;
+  }
+  .wm { font-family: var(--disp); font-weight: 800; font-size: 22px; letter-spacing: -0.02em; text-decoration: none; color: var(--ink); display: flex; align-items: center; gap: 9px; }
+  .wm svg { display: block; }
+  .wm .tag { font-family: var(--mono); font-weight: 500; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft); border: 1.5px solid var(--rule); border-radius: 20px; padding: 2px 8px; margin-left: 2px; }
+  nav.top { display: flex; align-items: center; gap: 22px; }
+  nav.top a { text-decoration: none; color: var(--ink); font-family: var(--disp); font-weight: 600; font-size: 14px; }
+  nav.top a:hover { color: var(--signal); }
+  nav.top a.gh { background: var(--ink); color: var(--paper); padding: 9px 16px; border-radius: 30px; }
+  nav.top a.gh:hover { background: var(--signal); }
+
+  /* ---------- shell ---------- */
+  .shell { max-width: 1240px; margin: 0 auto; display: grid; grid-template-columns: 248px minmax(0, 1fr); }
+  aside {
+    position: sticky; top: 68px; align-self: start; height: calc(100vh - 68px);
+    overflow-y: auto; border-right: 2px solid var(--rule); padding: 30px 22px 40px;
+  }
+  aside .group { margin-bottom: 24px; }
+  aside .group > span {
+    display: block; font-family: var(--disp); font-weight: 700; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--signal); margin-bottom: 9px;
+  }
+  aside a {
+    display: block; text-decoration: none; color: var(--ink-soft);
+    font-size: 13px; padding: 4px 0 4px 12px; border-left: 2px solid transparent;
+    margin-left: -2px;
+  }
+  aside a:hover { color: var(--ink); }
+  aside a.active { color: var(--ink); border-left-color: var(--signal); font-weight: 600; }
+
+  main { padding: 46px 52px 120px; min-width: 0; }
+  .doc-hero { border-bottom: 2px solid var(--rule); padding-bottom: 30px; margin-bottom: 44px; }
+  .doc-hero h1 { font-family: var(--disp); font-weight: 800; font-size: clamp(40px, 5.4vw, 60px); line-height: 0.98; letter-spacing: -0.03em; margin-bottom: 16px; }
+  .doc-hero p { color: var(--ink-soft); max-width: 64ch; }
+
+  section.doc { padding-top: 8px; margin-bottom: 56px; scroll-margin-top: 88px; }
+  section.doc > h2 {
+    font-family: var(--disp); font-weight: 800; font-size: 30px; line-height: 1.1; letter-spacing: -0.02em;
+    padding-bottom: 12px; margin-bottom: 22px; border-bottom: 2px solid var(--rule);
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  section.doc > h2 .no { font-size: 13px; font-weight: 500; color: var(--signal); font-family: var(--mono); }
+  h3 { font-family: var(--disp); font-size: 18px; font-weight: 700; letter-spacing: -0.01em; margin: 30px 0 10px; }
+  h3 code, h2 code { font-family: var(--mono); font-size: 0.82em; font-weight: 600; }
+  p { margin-bottom: 14px; max-width: 72ch; }
+  p code, li code, td code, .lead code { background: rgba(22,20,15,0.07); border-radius: 5px; padding: 1px 6px; font-size: 13px; }
+  ul, ol { margin: 0 0 14px 20px; }
+  li { margin-bottom: 6px; }
+  .lead { color: var(--ink-soft); max-width: 72ch; margin-bottom: 22px; }
+  a.inline { color: var(--ink); text-decoration: none; border-bottom: 2px solid var(--signal); }
+  a.inline:hover { color: var(--signal); }
+
+  pre {
+    background: var(--ink); color: #ece8db; font-size: 12.5px; line-height: 1.7;
+    padding: 16px 18px; overflow-x: auto; border-radius: 12px; margin: 0 0 18px;
+  }
+  pre code { font-size: inherit; background: none; padding: 0; }
+  .tk-k { color: #ff9b6b; } .tk-s { color: #a8d08d; } .tk-p { color: #7ec8d8; }
+  .tk-c { color: #8a857a; font-style: italic; } .tk-n { color: #e3c46e; } .tk-t { color: #c9a3e8; }
+
+  table { width: 100%; margin: 0 0 20px; font-size: 13px; border: 2px solid var(--rule); border-radius: 12px; border-collapse: separate; border-spacing: 0; overflow: hidden; }
+  th, td { border-bottom: 1.5px solid var(--rule); border-right: 1.5px solid var(--rule); padding: 9px 12px; text-align: left; vertical-align: top; }
+  th:last-child, td:last-child { border-right: 0; }
+  tbody tr:last-child td { border-bottom: 0; }
+  th { background: var(--ink); color: var(--paper); font-family: var(--disp); text-transform: uppercase; letter-spacing: 0.06em; font-size: 11px; font-weight: 600; }
+  tbody tr:nth-child(even) { background: var(--paper-dim); }
+  td .req { color: var(--signal); font-size: 11px; }
+  td .opt { color: var(--ink-soft); font-size: 11px; }
+
+  .sig {
+    border: 2px solid var(--rule); border-left: 5px solid var(--signal); border-radius: 10px;
+    background: var(--paper-dim); padding: 13px 16px; margin-bottom: 16px;
+    font-size: 13.5px; overflow-x: auto;
+  }
+  .sig .name { font-weight: 600; }
+  .note {
+    border: 2px solid var(--rule); border-radius: 12px; background: var(--paper-dim); padding: 13px 16px;
+    margin-bottom: 18px; font-size: 13px;
+  }
+  .note b { color: var(--signal); }
+  .pill { display: inline-block; border: 2px solid var(--rule); border-radius: 30px; padding: 2px 11px; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; margin-right: 4px; }
+
+  footer { border-top: 2px solid var(--rule); }
+  .foot { max-width: 1240px; margin: 0 auto; padding: 22px 24px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--ink-soft); }
+  .foot a { color: var(--ink); text-decoration: none; border-bottom: 2px solid var(--signal); }
+
+  .menu-btn { display: none; }
+  @media (max-width: 880px) {
+    .shell { grid-template-columns: 1fr; }
+    aside {
+      position: fixed; top: 68px; left: 0; right: 0; height: auto; max-height: calc(100vh - 68px);
+      background: var(--paper); border-right: 0; border-bottom: 2px solid var(--rule); z-index: 40;
+      display: none; padding: 22px 24px;
+    }
+    aside.open { display: block; }
+    main { padding: 34px 22px 100px; }
+    .wm .tag { display: none; }
+    nav.top { gap: 14px; }
+    nav.top a:not(.gh) { display: none; }
+    .menu-btn {
+      display: inline-block; font-family: var(--disp); font-weight: 600; font-size: 13px;
+      background: var(--paper); border: 2px solid var(--rule); border-radius: 30px;
+      padding: 6px 14px; cursor: pointer; color: var(--ink);
+    }
+    table { display: block; overflow-x: auto; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <a class="wm" href="index.html"><svg width="26" height="26" viewBox="0 0 26 26" fill="none"><path d="M4.5 19.5 C 11 19.5, 13.5 9, 19 7" stroke="#e8490f" stroke-width="3" stroke-linecap="round"/><g transform="translate(19 7) rotate(-18)"><path d="M6.5 0 L -2 -3.6 L -2 3.6 Z" fill="#e8490f"/></g></svg>swoosh<span class="tag">examples</span></a>
+    <nav class="top">
+      <button class="menu-btn" id="menuBtn" type="button">Menu</button>
+      <a href="index.html">Home</a>
+      <a href="docs.html">Docs</a>
+      <a href="llms.txt">llms.txt</a>
+      <a class="gh" href="https://github.com/acalejos/swoosh">GitHub ↗</a>
+    </nav>
+  </div>
+</header>
+<div class="shell">
+  <aside id="sidebar">
+    <div class="group">
+      <span>Examples</span>
+      <a href="#ex-01-quickstart">01 · Quickstart</a>
+      <a href="#ex-02-cost-guardrails">02 · Cost guardrails</a>
+      <a href="#ex-03-multimodal-routing">03 · Multimodal routing</a>
+      <a href="#ex-04-custom-policy">04 · Custom policy</a>
+      <a href="#ex-05-outage-fallback">05 · Outage fallback</a>
+      <a href="#ex-06-bring-your-own-catalog">06 · Bring your own catalog</a>
+      <a href="#ex-07-model-access">07 · Model access</a>
+      <a href="#ex-08-web-search">08 · Web search</a>
+      <a href="#ex-09-load-balancing">09 · Load balancing</a>
+      <a href="#ex-10-benchmark-routing">10 · Benchmark routing</a>
+      <a href="#ex-11-llm-judge">11 · LLM judge</a>
+    </div>
+    <div class="group">
+      <span>More</span>
+      <a href="docs.html">Documentation</a>
+      <a href="llms.txt">Agent docs (llms.txt)</a>
+    </div>
+  </aside>
+  <main>
+    <div class="doc-hero">
+      <h1>Examples</h1>
+      <p>11 runnable scripts that exercise swoosh end to end. They run offline with simulated providers — no API keys — so you can read, run, and tweak them immediately. From the repo root: <code>bun packages/model-router/examples/&lt;file&gt;</code>.</p>
+    </div>
+    <section class="doc" id="ex-01-quickstart">
+      <h2><span class="no">01</span> Quickstart</h2>
+      <p class="lead">Route a support ticket to the best available model and get structured output.</p>
+      <p><code>bun packages/model-router/examples/01-quickstart.ts</code> &middot; <a class="inline" href="https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/01-quickstart.ts">View source &#8599;</a></p>
+      <pre><code>// Route a support ticket to the best available model and get structured output.
+// Run from the repo root: bun packages/model-router/examples/01-quickstart.ts
+import {
+  createCallbackProviderAdapter,
+  createStaticCapabilityCatalog,
+  ModelRouter,
+} from "@swoosh-dev/router";
+import { exampleCatalog } from "./shared/catalog";
+import { printAttempts, printPlan } from "./shared/print";
+
+interface Triage {
+  category: "billing" | "bug" | "how-to";
+  urgency: "low" | "high";
+}
+
+// Simulated providers. Swap these for createAiSdkProviderAdapter in a real app.
+const providers = [
+  createCallbackProviderAdapter({
+    providerId: "google",
+    generateObject: () =&gt; ({ category: "billing", urgency: "high" }) satisfies Triage,
+  }),
+  createCallbackProviderAdapter({
+    providerId: "anthropic",
+    generateObject: () =&gt; ({ category: "billing", urgency: "high" }) satisfies Triage,
+  }),
+];
+
+const router = new ModelRouter({
+  catalog: createStaticCapabilityCatalog(exampleCatalog),
+  providers,
+  defaultPreference: "balanced",
+});
+
+const ticket = "I was charged twice for my subscription this month. Please fix this today.";
+
+const result = await router.run&lt;string, Triage&gt;({
+  task: "support.triage",
+  input: ticket,
+  prompt: `Classify this support ticket: ${ticket}`,
+  inputModalities: ["text"],
+  requiresFeatures: ["structured_output"],
+});
+
+printPlan(result.plan);
+printAttempts(result.attempts);
+console.log("output     ", result.output);</code></pre>
+    </section>
+    <section class="doc" id="ex-02-cost-guardrails">
+      <h2><span class="no">02</span> Cost guardrails</h2>
+      <p class="lead">Summarize a long document with a hard budget. Models whose estimated cost exceeds maxCostUsd are rejected at planning time, before any tokens are spent.</p>
+      <p><code>bun packages/model-router/examples/02-cost-guardrails.ts</code> &middot; <a class="inline" href="https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/02-cost-guardrails.ts">View source &#8599;</a></p>
+      <pre><code>// Summarize a long document with a hard budget. Models whose estimated cost
+// exceeds maxCostUsd are rejected at planning time, before any tokens are spent.
+// Run from the repo root: bun packages/model-router/examples/02-cost-guardrails.ts
+import {
+  createCallbackProviderAdapter,
+  createStaticCapabilityCatalog,
+  ModelRouter,
+} from "@swoosh-dev/router";
+import { exampleCatalog } from "./shared/catalog";
+import { printPlan } from "./shared/print";
+
+const router = new ModelRouter({
+  catalog: createStaticCapabilityCatalog(exampleCatalog),
+  providers: ["google", "anthropic", "openai", "mistral", "local"].map((providerId) =&gt;
+    createCallbackProviderAdapter({ providerId }),
+  ),
+});
+
+const plan = await router.plan({
+  task: "report.summarize",
+  input: "(a 400-page incident report)",
+  inputModalities: ["text"],
+  requiresFeatures: ["structured_output"],
+  estimatedInputTokens: 150_000,
+  estimatedOutputTokens: 4_000,
+  preference: "cheapest",
+  constraints: { maxCostUsd: 0.1 },
+});
+
+// claude-opus-4-8 is rejected: 150k input tokens at $15/M already costs $2.25.
+// gpt-4o and mistral-large are rejected on context window, not cost.
+printPlan(plan);</code></pre>
+    </section>
+    <section class="doc" id="ex-03-multimodal-routing">
+      <h2><span class="no">03</span> Multimodal routing</h2>
+      <p class="lead">Extract line items from a photographed receipt. Declaring image input automatically filters out text-only models — no manual model lists.</p>
+      <p><code>bun packages/model-router/examples/03-multimodal-routing.ts</code> &middot; <a class="inline" href="https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/03-multimodal-routing.ts">View source &#8599;</a></p>
+      <pre><code>// Extract line items from a photographed receipt. Declaring image input
+// automatically filters out text-only models — no manual model lists.
+// Run from the repo root: bun packages/model-router/examples/03-multimodal-routing.ts
+import {
+  createCallbackProviderAdapter,
+  createStaticCapabilityCatalog,
+  ModelRouter,
+} from "@swoosh-dev/router";
+import { exampleCatalog } from "./shared/catalog";
+import { printPlan } from "./shared/print";
+
+interface Receipt {
+  merchant: string;
+  totalCents: number;
+  lineItems: { label: string; cents: number }[];
+}
+
+const router = new ModelRouter({
+  catalog: createStaticCapabilityCatalog(exampleCatalog),
+  providers: ["google", "anthropic", "openai", "mistral", "local"].map((providerId) =&gt;
+    createCallbackProviderAdapter({
+      providerId,
+      generateObject: () =&gt;
+        ({
+          merchant: "Blue Bottle Coffee",
+          totalCents: 1250,
+          lineItems: [
+            { label: "Latte", cents: 650 },
+            { label: "Croissant", cents: 600 },
+          ],
+        }) satisfies Receipt,
+    }),
+  ),
+});
+
+const result = await router.run&lt;{ imageBase64: string }, Receipt&gt;({
+  task: "receipt.extract",
+  input: { imageBase64: "(receipt photo)" },
+  prompt: "Extract the merchant, total, and line items from this receipt.",
+  inputModalities: ["text", "image"],
+  requiresFeatures: ["structured_output"],
+  preference: "cheapest",
+});
+
+// mistral-large and llama-3.3-70b are rejected: text-only input.
+printPlan(result.plan);
+console.log("output     ", result.output);</code></pre>
+    </section>
+    <section class="doc" id="ex-04-custom-policy">
+      <h2><span class="no">04</span> Custom policy</h2>
+      <p class="lead">Routing policies are plain functions. This one keeps traffic inside EU-hosted providers for data-residency reasons, then picks the cheapest.</p>
+      <p><code>bun packages/model-router/examples/04-custom-policy.ts</code> &middot; <a class="inline" href="https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/04-custom-policy.ts">View source &#8599;</a></p>
+      <pre><code>// Routing policies are plain functions. This one keeps traffic inside
+// EU-hosted providers for data-residency reasons, then picks the cheapest.
+// Run from the repo root: bun packages/model-router/examples/04-custom-policy.ts
+import {
+  createCallbackProviderAdapter,
+  createStaticCapabilityCatalog,
+  ModelRouter,
+  type RoutingPolicy,
+} from "@swoosh-dev/router";
+import { exampleCatalog } from "./shared/catalog";
+import { printPlan } from "./shared/print";
+
+const EU_HOSTED = new Set(["mistral", "local"]);
+
+const euResidencyThenCheapest: RoutingPolicy = ({ candidates }) =&gt;
+  candidates
+    .filter((candidate) =&gt; EU_HOSTED.has(candidate.capability.providerId))
+    .sort(
+      (left, right) =&gt;
+        (left.estimatedCostUsd ?? Number.POSITIVE_INFINITY) -
+        (right.estimatedCostUsd ?? Number.POSITIVE_INFINITY),
+    );
+
+const router = new ModelRouter({
+  catalog: createStaticCapabilityCatalog(exampleCatalog),
+  providers: ["google", "anthropic", "openai", "mistral", "local"].map((providerId) =&gt;
+    createCallbackProviderAdapter({ providerId }),
+  ),
+});
+
+const plan = await router.plan({
+  task: "contract.redline",
+  input: "(an employment contract)",
+  inputModalities: ["text"],
+  preference: euResidencyThenCheapest,
+});
+
+// llama-3.3-70b wins on price; mistral-large is the fallback.
+// US-hosted candidates never make it into the route list.
+printPlan(plan);</code></pre>
+    </section>
+    <section class="doc" id="ex-05-outage-fallback">
+      <h2><span class="no">05</span> Outage fallback</h2>
+      <p class="lead">When the selected provider fails, execution moves down the ranked route list automatically. The result includes the full attempt history.</p>
+      <p><code>bun packages/model-router/examples/05-outage-fallback.ts</code> &middot; <a class="inline" href="https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/05-outage-fallback.ts">View source &#8599;</a></p>
+      <pre><code>// When the selected provider fails, execution moves down the ranked route
+// list automatically. The result includes the full attempt history.
+// Run from the repo root: bun packages/model-router/examples/05-outage-fallback.ts
+import {
+  createCallbackProviderAdapter,
+  createStaticCapabilityCatalog,
+  ModelRouter,
+} from "@swoosh-dev/router";
+import { exampleCatalog } from "./shared/catalog";
+import { printAttempts, printPlan } from "./shared/print";
+
+const router = new ModelRouter({
+  catalog: createStaticCapabilityCatalog(exampleCatalog),
+  providers: [
+    createCallbackProviderAdapter({
+      providerId: "google",
+      generateObject: () =&gt; {
+        throw new Error("503 service unavailable");
+      },
+    }),
+    createCallbackProviderAdapter({
+      providerId: "anthropic",
+      generateObject: () =&gt; {
+        throw new Error("429 rate limited");
+      },
+    }),
+    createCallbackProviderAdapter({
+      providerId: "openai",
+      generateObject: () =&gt; ({ summary: "Q3 revenue grew 14% quarter over quarter." }),
+    }),
+  ],
+});
+
+const result = await router.run&lt;string, { summary: string }&gt;({
+  task: "earnings.summarize",
+  input: "(earnings call transcript)",
+  prompt: "Summarize the key results in one sentence.",
+  inputModalities: ["text"],
+  requiresFeatures: ["structured_output"],
+  preference: "cheapest",
+});
+
+printPlan(result.plan);
+printAttempts(result.attempts);
+console.log("output     ", result.output);</code></pre>
+    </section>
+    <section class="doc" id="ex-06-bring-your-own-catalog">
+      <h2><span class="no">06</span> Bring your own catalog</h2>
+      <p class="lead">Opt out of models.dev: source the catalog from your own database (or any async loader) while still producing the canonical ModelCapability shape.</p>
+      <p><code>bun packages/model-router/examples/06-bring-your-own-catalog.ts</code> &middot; <a class="inline" href="https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/06-bring-your-own-catalog.ts">View source &#8599;</a></p>
+      <pre><code>// Opt out of models.dev: source the catalog from your own database (or any
+// async loader) while still producing the canonical ModelCapability shape.
+// Run from the repo root: bun packages/model-router/examples/06-bring-your-own-catalog.ts
+import {
+  createCallbackProviderAdapter,
+  createCapabilityCatalog,
+  type ModelCapability,
+  ModelRouter,
+} from "@swoosh-dev/router";
+import { printPlan } from "./shared/print";
+
+// Pretend this is a table in your database. The "columns" are exactly the
+// ModelCapability fields — your row maps straight onto the interface.
+interface ModelRow {
+  provider: string;
+  model: string;
+  vision: boolean;
+  ctx: number;
+  inUsdPerM: number;
+  outUsdPerM: number;
+}
+
+const rows: ModelRow[] = [
+  { provider: "internal", model: "house-small", vision: false, ctx: 32_000, inUsdPerM: 0, outUsdPerM: 0 },
+  { provider: "internal", model: "house-large", vision: true, ctx: 200_000, inUsdPerM: 0.5, outUsdPerM: 1.5 },
+];
+
+const rowToCapability = (row: ModelRow): ModelCapability =&gt; ({
+  providerId: row.provider,
+  providerName: "Internal",
+  modelId: row.model,
+  modelName: row.model,
+  inputModalities: row.vision ? ["text", "image"] : ["text"],
+  outputModalities: ["text"],
+  features: row.vision
+    ? ["structured_output", "tools", "attachments"]
+    : ["structured_output", "tools"],
+  limits: { contextTokens: row.ctx },
+  pricing: { inputPerMillionTokens: row.inUsdPerM, outputPerMillionTokens: row.outUsdPerM },
+  latencyClass: "fast",
+});
+
+const router = new ModelRouter({
+  // No models.dev — load and map your own rows. Could be a DB query, an API, a file.
+  catalog: createCapabilityCatalog(async () =&gt; {
+    const fetched = await Promise.resolve(rows); // e.g. await db.select().from(models)
+    return fetched.map(rowToCapability);
+  }),
+  providers: ["internal"].map((providerId) =&gt; createCallbackProviderAdapter({ providerId })),
+});
+
+const plan = await router.plan({
+  task: "doc.summarize",
+  input: "(an internal document)",
+  inputModalities: ["text"],
+  preference: "cheapest",
+});
+
+// Routes purely against your own catalog — house-small wins on price.
+printPlan(plan);</code></pre>
+    </section>
+    <section class="doc" id="ex-07-model-access">
+      <h2><span class="no">07</span> Model access</h2>
+      <p class="lead">Tell the router which models you actually have access to — declared once, not per request. A broad catalog (here the fixture; in production, models.dev) supplies the configs; you intersect it down to your accessible set.</p>
+      <p><code>bun packages/model-router/examples/07-model-access.ts</code> &middot; <a class="inline" href="https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/07-model-access.ts">View source &#8599;</a></p>
+      <pre><code>// Tell the router which models you actually have access to — declared once,
+// not per request. A broad catalog (here the fixture; in production, models.dev)
+// supplies the configs; you intersect it down to your accessible set.
+// Run from the repo root: bun packages/model-router/examples/07-model-access.ts
+import {
+  createCallbackProviderAdapter,
+  createStaticCapabilityCatalog,
+  filterCapabilityCatalog,
+  hasApiKey,
+  ModelRouter,
+} from "@swoosh-dev/router";
+import { exampleCatalog } from "./shared/catalog";
+import { printPlan } from "./shared/print";
+
+// The full catalog lists models across google, anthropic, openai, mistral, local.
+const universe = createStaticCapabilityCatalog(exampleCatalog);
+
+// Option A — allowlist the exact models your account/contract permits.
+// Configs (pricing, limits, features) still come from the catalog; you only name ids.
+const accessible = filterCapabilityCatalog(universe, [
+  "google/gemini-2.5-flash",
+  "anthropic/claude-haiku-4-5",
+  "openai/gpt-4o",
+]);
+
+// Option B — gate whole providers by whether their API key is present.
+// hasApiKey looks up the conventional env var(s) per provider (GEMINI_API_KEY,
+// OPENAI_API_KEY, …). It reads process.env by default; here we inject a fake
+// env so the example is deterministic offline.
+const env = { GEMINI_API_KEY: "demo", OPENAI_API_KEY: "demo" }; // no ANTHROPIC_API_KEY
+const providers = ["google", "anthropic", "openai", "mistral", "local"].map((providerId) =&gt;
+  createCallbackProviderAdapter({ providerId, isAvailable: () =&gt; hasApiKey(providerId, { env }) }),
+);
+
+const router = new ModelRouter({ catalog: accessible, providers });
+
+const plan = await router.plan({
+  task: "doc.classify",
+  input: "(a document)",
+  inputModalities: ["text"],
+  requiresFeatures: ["structured_output"],
+  preference: "cheapest",
+});
+
+// Only the three allowlisted models are even considered; claude-haiku is then
+// rejected because its key is missing — leaving gemini (selected) and gpt-4o.
+printPlan(plan);</code></pre>
+    </section>
+    <section class="doc" id="ex-08-web-search">
+      <h2><span class="no">08</span> Web search</h2>
+      <p class="lead">Generate a quiz about current events — which needs a model that can search the web. Requiring the "web_search" feature filters the catalog to models whose API does live search; the adapter turns it on per provider.</p>
+      <p><code>bun packages/model-router/examples/08-web-search.ts</code> &middot; <a class="inline" href="https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/08-web-search.ts">View source &#8599;</a></p>
+      <pre><code>// Generate a quiz about current events — which needs a model that can search
+// the web. Requiring the "web_search" feature filters the catalog to models
+// whose API does live search; the adapter turns it on per provider.
+// Run from the repo root: bun packages/model-router/examples/08-web-search.ts
+import {
+  createCallbackProviderAdapter,
+  createStaticCapabilityCatalog,
+  ModelRouter,
+} from "@swoosh-dev/router";
+import { exampleCatalog } from "./shared/catalog";
+import { printPlan } from "./shared/print";
+
+interface Quiz {
+  questions: { prompt: string; answer: string }[];
+}
+
+// In the fixture, google/gemini-2.5-flash and openai/gpt-4o are tagged with
+// "web_search"; the others are not. The adapter is where you actually enable
+// the provider's search tool (e.g. OpenAI's web_search tool, Gemini grounding).
+const providers = ["google", "anthropic", "openai", "mistral", "local"].map((providerId) =&gt;
+  createCallbackProviderAdapter({
+    providerId,
+    generateObject: () =&gt;
+      ({
+        questions: [
+          { prompt: "Which team won the most recent Formula 1 race?", answer: "(from live search)" },
+        ],
+      }) satisfies Quiz,
+  }),
+);
+
+const router = new ModelRouter({
+  catalog: createStaticCapabilityCatalog(exampleCatalog),
+  providers,
+});
+
+const result = await router.run&lt;string, Quiz&gt;({
+  task: "quiz.generate",
+  input: "Write 5 quiz questions about this week's sports headlines.",
+  prompt: "Write 5 quiz questions about this week's sports headlines, with answers.",
+  inputModalities: ["text"],
+  requiresFeatures: ["structured_output", "web_search"],
+  preference: "cheapest",
+});
+
+// Only gemini-2.5-flash and gpt-4o survive the web_search requirement;
+// claude, mistral, and llama are rejected for lacking it.
+printPlan(result.plan);
+console.log("output     ", JSON.stringify(result.output));</code></pre>
+    </section>
+    <section class="doc" id="ex-09-load-balancing">
+      <h2><span class="no">09</span> Load balancing</h2>
+      <p class="lead">LiteLLM-style rotation, two ways:   • loadBalance — spread requests across the N cheapest providers, not just #1.   • roundRobin  — rotate API keys within one provider to spread rate limits.</p>
+      <p><code>bun packages/model-router/examples/09-load-balancing.ts</code> &middot; <a class="inline" href="https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/09-load-balancing.ts">View source &#8599;</a></p>
+      <pre><code>// LiteLLM-style rotation, two ways:
+//   • loadBalance — spread requests across the N cheapest providers, not just #1.
+//   • roundRobin  — rotate API keys within one provider to spread rate limits.
+// Run from the repo root: bun packages/model-router/examples/09-load-balancing.ts
+import {
+  createCallbackProviderAdapter,
+  createStaticCapabilityCatalog,
+  loadBalance,
+  ModelRouter,
+  roundRobin,
+} from "@swoosh-dev/router";
+
+// Three image-generation models; replicate and openai are the two cheapest.
+const imageCatalog = createStaticCapabilityCatalog([
+  {
+    providerId: "replicate", providerName: "Replicate", modelId: "flux-schnell", modelName: "FLUX schnell",
+    inputModalities: ["text"], outputModalities: ["image"], features: [],
+    limits: {}, pricing: { outputPerMillionTokens: 3 }, latencyClass: "fast",
+  },
+  {
+    providerId: "openai", providerName: "OpenAI", modelId: "gpt-image-1", modelName: "GPT Image 1",
+    inputModalities: ["text"], outputModalities: ["image"], features: [],
+    limits: {}, pricing: { outputPerMillionTokens: 4 }, latencyClass: "standard",
+  },
+  {
+    providerId: "google", providerName: "Google", modelId: "imagen-4", modelName: "Imagen 4",
+    inputModalities: ["text"], outputModalities: ["image"], features: [],
+    limits: {}, pricing: { outputPerMillionTokens: 12 }, latencyClass: "standard",
+  },
+]);
+
+// openai rotates between two keys; we log which one each call used.
+const nextOpenAiKey = roundRobin(["openai-key-A", "openai-key-B"]);
+
+const router = new ModelRouter({
+  catalog: imageCatalog,
+  providers: ["replicate", "openai", "google"].map((providerId) =&gt;
+    createCallbackProviderAdapter({
+      providerId,
+      generateObject: () =&gt; {
+        const key = providerId === "openai" ? ` (key ${nextOpenAiKey()})` : "";
+        return { url: `https://cdn.example/${providerId}.png`, via: providerId + key };
+      },
+    }),
+  ),
+});
+
+// Cheapest image gen — but cycle through the two cheapest providers.
+const balanced = loadBalance("cheapest", { across: 2 });
+
+for (let i = 1; i &lt;= 4; i++) {
+  const result = await router.run&lt;string, { url: string; via: string }&gt;({
+    task: "image.generate",
+    input: "a watercolor fox",
+    prompt: "a watercolor fox",
+    inputModalities: ["text"],
+    outputModalities: ["image"],
+    preference: balanced,
+  });
+  console.log(`request ${i} → ${result.output.via}`);
+}
+// → replicate, openai (key A), replicate, openai (key B): providers alternate,
+//   and openai's two keys rotate across the calls that land on it.</code></pre>
+    </section>
+    <section class="doc" id="ex-10-benchmark-routing">
+      <h2><span class="no">10</span> Benchmark routing</h2>
+      <p class="lead">Route by benchmark performance, not just price. byBenchmark ranks on a named benchmark — or a function that blends several, so you decide what "best" means.</p>
+      <p><code>bun packages/model-router/examples/10-benchmark-routing.ts</code> &middot; <a class="inline" href="https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/10-benchmark-routing.ts">View source &#8599;</a></p>
+      <pre><code>// Route by benchmark performance, not just price. byBenchmark ranks on a named
+// benchmark — or a function that blends several, so you decide what "best" means.
+// Run from the repo root: bun packages/model-router/examples/10-benchmark-routing.ts
+import {
+  byBenchmark,
+  createCallbackProviderAdapter,
+  createStaticCapabilityCatalog,
+  type ModelCapability,
+  ModelRouter,
+} from "@swoosh-dev/router";
+import { printPlan } from "./shared/print";
+
+const model = (
+  providerId: string,
+  modelId: string,
+  benchmarks: Record&lt;string, number&gt;,
+): ModelCapability =&gt; ({
+  providerId, providerName: providerId, modelId, modelName: modelId,
+  inputModalities: ["text"], outputModalities: ["text"],
+  features: ["structured_output"], limits: { contextTokens: 200_000 },
+  pricing: { inputPerMillionTokens: 1, outputPerMillionTokens: 3 }, latencyClass: "standard",
+  benchmarks,
+});
+
+const catalog = createStaticCapabilityCatalog([
+  model("openai", "gpt-5", { swe_bench: 0.72, gpqa: 0.85 }),
+  model("anthropic", "claude-opus", { swe_bench: 0.78, gpqa: 0.84 }),
+  model("google", "gemini-pro", { swe_bench: 0.64, gpqa: 0.84 }),
+]);
+
+const router = new ModelRouter({
+  catalog,
+  providers: ["openai", "anthropic", "google"].map((p) =&gt; createCallbackProviderAdapter({ providerId: p })),
+});
+
+const base = {
+  task: "code.fix",
+  input: "patch this failing test",
+  inputModalities: ["text"] as const,
+  requiresFeatures: ["structured_output"] as const,
+};
+
+// 1) Single benchmark: best at SWE-bench → claude-opus.
+const sweBest = await router.plan({ ...base, preference: byBenchmark("swe_bench") });
+console.log("best @ swe_bench:");
+printPlan(sweBest);
+
+// 2) Composite: weight coding 70% / reasoning 30% → your own definition of "best".
+const blended = byBenchmark((c) =&gt; 0.7 * (c.benchmarks?.swe_bench ?? 0) + 0.3 * (c.benchmarks?.gpqa ?? 0));
+const blendedPlan = await router.plan({ ...base, preference: blended });
+console.log("\nbest @ 0.7·swe_bench + 0.3·gpqa:");
+printPlan(blendedPlan);</code></pre>
+    </section>
+    <section class="doc" id="ex-11-llm-judge">
+      <h2><span class="no">11</span> LLM judge</h2>
+      <p class="lead">Dynamic routing: an LLM judge classifies each prompt, then the policy routes by the verdict — cheap models for chat, top models for coding, search models for research. The classifier returns structured output (the category).</p>
+      <p><code>bun packages/model-router/examples/11-llm-judge.ts</code> &middot; <a class="inline" href="https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/11-llm-judge.ts">View source &#8599;</a></p>
+      <pre><code>// Dynamic routing: an LLM judge classifies each prompt, then the policy routes
+// by the verdict — cheap models for chat, top models for coding, search models
+// for research. The classifier returns structured output (the category).
+// Run from the repo root: bun packages/model-router/examples/11-llm-judge.ts
+import {
+  byBenchmark,
+  createCallbackProviderAdapter,
+  createStaticCapabilityCatalog,
+  type ModelCapability,
+  ModelRouter,
+} from "@swoosh-dev/router";
+import { llmJudgePolicy } from "@swoosh-dev/judge";
+import { printPlan } from "./shared/print";
+
+const model = (providerId: string, modelId: string, extra: Partial&lt;ModelCapability&gt;): ModelCapability =&gt; ({
+  providerId, providerName: providerId, modelId, modelName: modelId,
+  inputModalities: ["text"], outputModalities: ["text"], features: ["structured_output"],
+  limits: { contextTokens: 200_000 }, pricing: { inputPerMillionTokens: 1, outputPerMillionTokens: 3 },
+  latencyClass: "standard", ...extra,
+});
+
+const router = new ModelRouter({
+  catalog: createStaticCapabilityCatalog([
+    model("local", "tiny", { pricing: { inputPerMillionTokens: 0, outputPerMillionTokens: 0 } }),
+    model("anthropic", "opus", { qualityScore: 10, benchmarks: { swe_bench: 0.78 } }),
+    model("perplexity", "sonar", { features: ["structured_output", "web_search"] }),
+  ]),
+  providers: ["local", "anthropic", "perplexity"].map((p) =&gt; createCallbackProviderAdapter({ providerId: p })),
+});
+
+type Kind = "chat" | "coding" | "research";
+
+// Stand-in for a structured-output LLM call. In production this is e.g.
+// judge.generateObject({ schema: KindSchema, prompt }) routed through swoosh itself.
+let judgeCalls = 0;
+const classify = ({ prompt }: { prompt: string }): Kind =&gt; {
+  judgeCalls++;
+  if (/\b(code|bug|patch|function|test)\b/i.test(prompt)) return "coding";
+  if (/\b(latest|today|news|current|who won)\b/i.test(prompt)) return "research";
+  return "chat";
+};
+
+const smart = llmJudgePolicy&lt;Kind&gt;({
+  classify,
+  route: {
+    chat: "cheapest",
+    coding: byBenchmark("swe_bench"),
+    research: ({ candidates }) =&gt; candidates.filter((c) =&gt; c.capability.features.includes("web_search")),
+  },
+});
+
+for (const prompt of [
+  "just say hi back to me",
+  "patch this failing unit test",
+  "who won the game last night?",
+  "just say hi back to me", // repeat → served from the judge cache
+]) {
+  const plan = await router.plan({ task: "assist", input: prompt, inputModalities: ["text"], preference: smart });
+  console.log(`"${prompt.slice(0, 28)}…" → ${plan.selected.capability.providerId}/${plan.selected.capability.modelId}`);
+}
+console.log(`\njudge invoked ${judgeCalls}× for 4 requests (1 was cached)`);</code></pre>
+    </section>
+  </main>
+</div>
+<footer>
+  <div class="foot">
+    <span>&copy; 2026 swoosh contributors &middot; Apache-2.0</span>
+    <span>zero dependencies &middot; <a href="docs.html">docs</a> &middot; <a href="llms.txt">llms.txt</a> &middot; catalog by <a href="https://models.dev">models.dev</a></span>
+  </div>
+</footer>
+<script>
+  const sidebar = document.getElementById("sidebar");
+  document.getElementById("menuBtn").addEventListener("click", () => sidebar.classList.toggle("open"));
+  sidebar.addEventListener("click", (e) => { if (e.target.tagName === "A") sidebar.classList.remove("open"); });
+  const links = [...document.querySelectorAll("aside a")].filter((a) => a.getAttribute("href").startsWith("#"));
+  const byId = new Map(links.map((a) => [a.getAttribute("href").slice(1), a]));
+  const sections = [...document.querySelectorAll("section.doc")];
+  const setActive = () => {
+    const y = window.scrollY + 90;
+    let cur = sections[0];
+    for (const s of sections) if (s.offsetTop <= y) cur = s;
+    links.forEach((a) => a.classList.remove("active"));
+    if (cur) byId.get(cur.id)?.classList.add("active");
+  };
+  window.addEventListener("scroll", setActive, { passive: true });
+  setActive();
+</script>
+</body>
+</html>

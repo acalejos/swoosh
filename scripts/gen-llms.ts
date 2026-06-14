@@ -11,8 +11,10 @@
 //   - llms.txt        index (https://llmstxt.org format)
 //   - llms-full.txt   the whole corpus (README + full .d.ts + examples) in one fetch
 //   - api/<pkg>.md    per-package: README + type definitions
+//   - examples.html   browsable example gallery (reuses docs.html's theme/CSS)
 //
-// The human docs (index.html, docs.html) are hand-crafted and left untouched.
+// The hand-crafted human docs (index.html, docs.html) are left untouched;
+// examples.html borrows docs.html's <style> block so it can't drift visually.
 
 import { readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
@@ -33,6 +35,21 @@ const PACKAGES = [
 
 // "@swoosh-dev/router" -> "swoosh-dev-router" for flat, URL-safe filenames
 const slug = (name: string) => name.replace(/^@/, "").replace(/\//g, "-");
+
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+// "01-quickstart" -> "Quickstart", "11-llm-judge" -> "LLM judge"
+const ACRONYMS: Record<string, string> = { llm: "LLM", ai: "AI", sdk: "SDK", api: "API", db: "DB" };
+const prettyTitle = (title: string) =>
+  title
+    .replace(/^\d+-/, "")
+    .split("-")
+    .map((w, i) => ACRONYMS[w] ?? (i === 0 ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(" ");
+const exNum = (title: string) => (title.match(/^(\d+)/) || ["", ""])[1];
+// the "sweep" logo mark, matching the landing page / docs header
+const SWEEP_SVG =
+  '<svg width="26" height="26" viewBox="0 0 26 26" fill="none"><path d="M4.5 19.5 C 11 19.5, 13.5 9, 19 7" stroke="#e8490f" stroke-width="3" stroke-linecap="round"/><g transform="translate(19 7) rotate(-18)"><path d="M6.5 0 L -2 -3.6 L -2 3.6 Z" fill="#e8490f"/></g></svg>';
 
 const read = (p: string) => (existsSync(p) ? Bun.file(p).text() : Promise.resolve(""));
 const stripFrontMatterBadges = (md: string) =>
@@ -188,12 +205,99 @@ async function main() {
   ].join("\n");
   await Bun.write(join(SITE, "llms-full.txt"), full);
 
+  // ---- examples.html (browsable gallery; reuses the docs theme so it never drifts) ----
+  const docsHtml = await read(join(SITE, "docs.html"));
+  const styleBlock = (docsHtml.match(/<style>[\s\S]*?<\/style>/) || [""])[0];
+  const fontLinks = (docsHtml.match(/<link[^>]*(?:fonts\.|preconnect)[^>]*>/g) || []).join("\n");
+  const exId = (e: { title: string }) => `ex-${e.title}`;
+  const exHtml = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>swoosh examples — just give me a model</title>
+<meta name="description" content="Eleven runnable, offline examples for swoosh: intent + policy routing, cost guardrails, multimodal, outage fallback, bring-your-own catalog, model access, web search, load balancing, benchmark routing, and an LLM judge." />
+<link rel="alternate" type="text/markdown" href="llms.txt" title="LLM-friendly docs (llms.txt)" />
+${fontLinks}
+${styleBlock}
+</head>
+<body>
+<header>
+  <div class="bar">
+    <a class="wm" href="index.html">${SWEEP_SVG}swoosh<span class="tag">examples</span></a>
+    <nav class="top">
+      <button class="menu-btn" id="menuBtn" type="button">Menu</button>
+      <a href="index.html">Home</a>
+      <a href="docs.html">Docs</a>
+      <a href="llms.txt">llms.txt</a>
+      <a class="gh" href="${REPO}">GitHub ↗</a>
+    </nav>
+  </div>
+</header>
+<div class="shell">
+  <aside id="sidebar">
+    <div class="group">
+      <span>Examples</span>
+      ${examples.map((e) => `<a href="#${exId(e)}">${exNum(e.title)} · ${prettyTitle(e.title)}</a>`).join("\n      ")}
+    </div>
+    <div class="group">
+      <span>More</span>
+      <a href="docs.html">Documentation</a>
+      <a href="llms.txt">Agent docs (llms.txt)</a>
+    </div>
+  </aside>
+  <main>
+    <div class="doc-hero">
+      <h1>Examples</h1>
+      <p>${examples.length} runnable scripts that exercise swoosh end to end. They run offline with simulated providers — no API keys — so you can read, run, and tweak them immediately. From the repo root: <code>bun packages/model-router/examples/&lt;file&gt;</code>.</p>
+    </div>
+    ${examples
+      .map(
+        (e) => `<section class="doc" id="${exId(e)}">
+      <h2><span class="no">${exNum(e.title)}</span> ${prettyTitle(e.title)}</h2>
+      <p class="lead">${escapeHtml(e.desc)}</p>
+      <p><code>bun packages/model-router/examples/${e.file}</code> &middot; <a class="inline" href="${REPO}/blob/main/packages/model-router/examples/${e.file}">View source &#8599;</a></p>
+      <pre><code>${escapeHtml(e.src)}</code></pre>
+    </section>`,
+      )
+      .join("\n    ")}
+  </main>
+</div>
+<footer>
+  <div class="foot">
+    <span>&copy; 2026 swoosh contributors &middot; Apache-2.0</span>
+    <span>zero dependencies &middot; <a href="docs.html">docs</a> &middot; <a href="llms.txt">llms.txt</a> &middot; catalog by <a href="https://models.dev">models.dev</a></span>
+  </div>
+</footer>
+<script>
+  const sidebar = document.getElementById("sidebar");
+  document.getElementById("menuBtn").addEventListener("click", () => sidebar.classList.toggle("open"));
+  sidebar.addEventListener("click", (e) => { if (e.target.tagName === "A") sidebar.classList.remove("open"); });
+  const links = [...document.querySelectorAll("aside a")].filter((a) => a.getAttribute("href").startsWith("#"));
+  const byId = new Map(links.map((a) => [a.getAttribute("href").slice(1), a]));
+  const sections = [...document.querySelectorAll("section.doc")];
+  const setActive = () => {
+    const y = window.scrollY + 90;
+    let cur = sections[0];
+    for (const s of sections) if (s.offsetTop <= y) cur = s;
+    links.forEach((a) => a.classList.remove("active"));
+    if (cur) byId.get(cur.id)?.classList.add("active");
+  };
+  window.addEventListener("scroll", setActive, { passive: true });
+  setActive();
+</script>
+</body>
+</html>
+`;
+  await Bun.write(join(SITE, "examples.html"), exHtml);
+
   // ---- summary ----
   const kb = (s: string) => (Buffer.byteLength(s) / 1024).toFixed(1) + "KB";
   console.log("Generated agent docs in packages/model-router/site:");
   console.log(`  llms.txt         ${kb(llms)}`);
   console.log(`  llms-full.txt    ${kb(full)}  (${pkgs.length} packages, ${examples.length} examples)`);
   console.log(`  api/*.md         ${pkgs.length} files`);
+  console.log(`  examples.html    ${kb(exHtml)}  (${examples.length} examples)`);
 }
 
 main().catch((e) => {
