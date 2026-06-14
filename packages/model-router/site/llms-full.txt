@@ -40,11 +40,11 @@ and outages. swoosh inverts that:
 ## Quick start
 
 ```sh
-npm install swoosh-sdk ai @ai-sdk/openai
+npm install @swoosh-dev/sdk ai @ai-sdk/openai
 ```
 
 ```ts
-import { createRouter } from "swoosh-sdk";
+import { createRouter } from "@swoosh-dev/sdk";
 
 const router = await createRouter(); // enriched catalog + providers from your keys
 
@@ -66,11 +66,11 @@ Compose the packages directly.
 
 | Package | Install | What |
 | --- | --- | --- |
-| [`swoosh-sdk`](packages/sdk) | `npm i swoosh-sdk ai @ai-sdk/openai` | Batteries-included drop-in — `createRouter()`, auto-wired providers, re-exports everything |
-| [`swoosh-router`](packages/model-router) | `npm i swoosh-router` | Zero-dependency core: intent + policy routing, inspectable plans, fallback |
-| [`swoosh-capabilities`](packages/capabilities) | `npm i swoosh-capabilities` | Curated, enriched model dataset (models.dev ∪ web_search / latency / quality / benchmarks) |
-| [`swoosh-judge`](packages/judge) | `npm i swoosh-judge` | Dynamic policies — classify the prompt with an LLM judge, route by verdict |
-| [`swoosh-ai-sdk`](packages/ai-sdk) | `npm i swoosh-ai-sdk ai` | Vercel AI SDK provider adapter |
+| [`@swoosh-dev/sdk`](packages/sdk) | `npm i @swoosh-dev/sdk ai @ai-sdk/openai` | Batteries-included drop-in — `createRouter()`, auto-wired providers, re-exports everything |
+| [`@swoosh-dev/router`](packages/model-router) | `npm i @swoosh-dev/router` | Zero-dependency core: intent + policy routing, inspectable plans, fallback |
+| [`@swoosh-dev/capabilities`](packages/capabilities) | `npm i @swoosh-dev/capabilities` | Curated, enriched model dataset (models.dev ∪ web_search / latency / quality / benchmarks) |
+| [`@swoosh-dev/judge`](packages/judge) | `npm i @swoosh-dev/judge` | Dynamic policies — classify the prompt with an LLM judge, route by verdict |
+| [`@swoosh-dev/ai-sdk`](packages/ai-sdk) | `npm i @swoosh-dev/ai-sdk ai` | Vercel AI SDK provider adapter |
 
 The core has **zero runtime dependencies** — plain Promises, no framework to adopt.
 
@@ -109,22 +109,22 @@ bun test            # run the suite
 ---
 
 
-## swoosh-sdk
+## @swoosh-dev/sdk
 
 > Batteries-included drop-in: createRouter(), auto-wired providers, re-exports everything.
 
-Install: `npm install swoosh-sdk` · Source: https://github.com/acalejos/swoosh/tree/main/packages/sdk
+Install: `npm install @swoosh-dev/sdk` · Source: https://github.com/acalejos/swoosh/tree/main/packages/sdk
 
-# swoosh-sdk
+# @swoosh-dev/sdk
 
 The batteries-included drop-in for [swoosh](../model-router). One install, one call — the enriched default catalog plus AI-SDK provider adapters auto-wired from whatever API keys are in your environment. Also re-exports the whole toolkit, so it's a single import surface.
 
 ```sh
-npm install swoosh-sdk ai @ai-sdk/openai   # add more @ai-sdk/* providers as you like
+npm install @swoosh-dev/sdk ai @ai-sdk/openai   # add more @ai-sdk/* providers as you like
 ```
 
 ```ts
-import { createRouter } from "swoosh-sdk";
+import { createRouter } from "@swoosh-dev/sdk";
 
 const router = await createRouter();        // catalog + providers, wired from your keys
 
@@ -144,7 +144,7 @@ const out = await router.generateObject({
 
 | Option | Default | Notes |
 | --- | --- | --- |
-| `catalog` | `defaultCatalog()` from `swoosh-capabilities` | Any `CapabilityCatalog`. |
+| `catalog` | `defaultCatalog()` from `@swoosh-dev/capabilities` | Any `CapabilityCatalog`. |
 | `providers` | auto-wired from API keys | Pass your own adapters to opt out of auto-wiring. |
 | `defaultPreference` | `"balanced"` | Used when a request omits `preference`. |
 | `env` | `process.env` | Source for key detection. |
@@ -177,21 +177,21 @@ Users never configure models — the catalog supplies them, so new models become
 
 ## When to reach past the drop-in
 
-This package trades a heavier dependency footprint for zero-config. If you want a lean install or full control, compose the granular packages directly — [`swoosh-router`](../model-router) (zero-dep core), [`swoosh-ai-sdk`](../ai-sdk), [`swoosh-capabilities`](../capabilities), [`swoosh-judge`](../judge). The drop-in is built entirely from them.
+This package trades a heavier dependency footprint for zero-config. If you want a lean install or full control, compose the granular packages directly — [`@swoosh-dev/router`](../model-router) (zero-dep core), [`@swoosh-dev/ai-sdk`](../ai-sdk), [`@swoosh-dev/capabilities`](../capabilities), [`@swoosh-dev/judge`](../judge). The drop-in is built entirely from them.
 
 ```ts
 // Everything is also re-exported here:
-import { byBenchmark, llmJudgePolicy, filterCapabilityCatalog, defaultCatalog } from "swoosh-sdk";
+import { byBenchmark, llmJudgePolicy, filterCapabilityCatalog, defaultCatalog } from "@swoosh-dev/sdk";
 ```
 
-### swoosh-sdk — type definitions
+### @swoosh-dev/sdk — type definitions
 
 ```ts
-import { ProviderAdapter, CapabilityCatalog, RoutingPreference, ModelRouter } from 'swoosh-router';
-export * from 'swoosh-router';
-export * from 'swoosh-judge';
-export { AiSdkProviderOptions, createAiSdkProviderAdapter } from 'swoosh-ai-sdk';
-export { capabilities, meta as capabilitiesMeta, defaultCatalog, defaultOverrides } from 'swoosh-capabilities';
+import { ProviderAdapter, CapabilityCatalog, RoutingPreference, ModelRouter } from '@swoosh-dev/router';
+export * from '@swoosh-dev/router';
+export * from '@swoosh-dev/judge';
+export { AiSdkProviderOptions, createAiSdkProviderAdapter } from '@swoosh-dev/ai-sdk';
+export { capabilities, meta as capabilitiesMeta, defaultCatalog, defaultOverrides } from '@swoosh-dev/capabilities';
 
 /** providerId (as used by models.dev / the catalog) → its AI SDK package + factory export. */
 interface ProviderEntry {
@@ -216,7 +216,7 @@ interface AutoProvidersOptions {
 declare const autoProviders: (options?: AutoProvidersOptions) => Promise<ProviderAdapter[]>;
 
 interface CreateRouterOptions {
-    /** Capability catalog. Defaults to the bundled, enriched `swoosh-capabilities` dataset. */
+    /** Capability catalog. Defaults to the bundled, enriched `@swoosh-dev/capabilities` dataset. */
     readonly catalog?: CapabilityCatalog;
     /** Provider adapters. Defaults to AI-SDK providers auto-wired from present API keys. */
     readonly providers?: readonly ProviderAdapter[];
@@ -246,16 +246,16 @@ export { type AutoProvidersOptions, type CreateRouterOptions, type ProviderEntry
 ---
 
 
-## swoosh-router
+## @swoosh-dev/router
 
 > Zero-dependency core: intent + policy routing, inspectable plans, automatic fallback.
 
-Install: `npm install swoosh-router` · Source: https://github.com/acalejos/swoosh/tree/main/packages/model-router
+Install: `npm install @swoosh-dev/router` · Source: https://github.com/acalejos/swoosh/tree/main/packages/model-router
 
 # swoosh — just give me a model
 
 ```sh
-npm install swoosh-router
+npm install @swoosh-dev/router
 ```
 
 Intent-driven, policy-driven model routing. Describe **what** a task needs — modalities, structured output, tools, token estimates — and **how** to choose — cheapest, fastest, best quality, or a custom policy — and the router plans the best model, explains every rejection, and executes with automatic fallback.
@@ -268,11 +268,11 @@ The core router has zero runtime dependencies. Provider integrations that pull i
 
 | Package | Install | Contents |
 | --- | --- | --- |
-| [`swoosh-sdk`](../sdk) | `npm i swoosh-sdk ai @ai-sdk/openai` | **Batteries-included drop-in** — `createRouter()` with the enriched catalog and providers auto-wired from your API keys. Re-exports everything. |
-| [`swoosh-router`](.) | `npm i swoosh-router` | Router engine, capability catalogs, policies, callback adapter |
-| [`swoosh-ai-sdk`](../ai-sdk) | `npm i swoosh-ai-sdk ai` | Vercel AI SDK provider adapter (`ai` is a peer dependency) |
-| [`swoosh-capabilities`](../capabilities) | `npm i swoosh-capabilities` | Curated, enriched model dataset + `defaultCatalog()` (models.dev ∪ web_search / latency / quality / benchmarks) |
-| [`swoosh-judge`](../judge) | `npm i swoosh-judge` | Dynamic policies — classify the prompt with an LLM judge, route by the verdict |
+| [`@swoosh-dev/sdk`](../sdk) | `npm i @swoosh-dev/sdk ai @ai-sdk/openai` | **Batteries-included drop-in** — `createRouter()` with the enriched catalog and providers auto-wired from your API keys. Re-exports everything. |
+| [`@swoosh-dev/router`](.) | `npm i @swoosh-dev/router` | Router engine, capability catalogs, policies, callback adapter |
+| [`@swoosh-dev/ai-sdk`](../ai-sdk) | `npm i @swoosh-dev/ai-sdk ai` | Vercel AI SDK provider adapter (`ai` is a peer dependency) |
+| [`@swoosh-dev/capabilities`](../capabilities) | `npm i @swoosh-dev/capabilities` | Curated, enriched model dataset + `defaultCatalog()` (models.dev ∪ web_search / latency / quality / benchmarks) |
+| [`@swoosh-dev/judge`](../judge) | `npm i @swoosh-dev/judge` | Dynamic policies — classify the prompt with an LLM judge, route by the verdict |
 
 ## Why
 
@@ -286,8 +286,8 @@ Hard-coding `model: "gpt-..."` couples your application to one provider's naming
 ## Quick start
 
 ```ts
-import { ModelRouter, ModelsDevCapabilityCatalog } from "swoosh-router";
-import { createAiSdkProviderAdapter } from "swoosh-ai-sdk";
+import { ModelRouter, ModelsDevCapabilityCatalog } from "@swoosh-dev/router";
+import { createAiSdkProviderAdapter } from "@swoosh-dev/ai-sdk";
 import { google } from "@ai-sdk/google";
 import { generateObject } from "ai";
 
@@ -338,7 +338,7 @@ plan.estimate;  // { inputTokens, outputTokens, costUsd }
 A policy is just a function from ranked candidates to ranked candidates — pass it as the `preference`:
 
 ```ts
-import type { RoutingPolicy } from "swoosh-router";
+import type { RoutingPolicy } from "@swoosh-dev/router";
 
 const euOnlyThenCheapest: RoutingPolicy = ({ candidates }) =>
   candidates
@@ -346,10 +346,10 @@ const euOnlyThenCheapest: RoutingPolicy = ({ candidates }) =>
     .sort((a, b) => (a.estimatedCostUsd ?? Infinity) - (b.estimatedCostUsd ?? Infinity));
 ```
 
-Policies can be **async**, which unlocks dynamic routing — e.g. classifying the prompt with an LLM judge before choosing (see [`swoosh-judge`](../judge)). And `byBenchmark` ranks on benchmark scores, by a single name or a composite scoring function:
+Policies can be **async**, which unlocks dynamic routing — e.g. classifying the prompt with an LLM judge before choosing (see [`@swoosh-dev/judge`](../judge)). And `byBenchmark` ranks on benchmark scores, by a single name or a composite scoring function:
 
 ```ts
-import { byBenchmark } from "swoosh-router";
+import { byBenchmark } from "@swoosh-dev/router";
 
 preference: byBenchmark("swe_bench", { minimum: 0.5 });
 preference: byBenchmark((m) => 0.7 * (m.benchmarks?.swe_bench ?? 0) + 0.3 * (m.benchmarks?.gpqa ?? 0));
@@ -360,7 +360,7 @@ preference: byBenchmark((m) => 0.7 * (m.benchmarks?.swe_bench ?? 0) + 0.3 * (m.b
 Adapters are tiny — implement `generateObject` and/or `generateText` against your client of choice:
 
 ```ts
-import { createCallbackProviderAdapter } from "swoosh-router";
+import { createCallbackProviderAdapter } from "@swoosh-dev/router";
 
 const anthropic = createCallbackProviderAdapter({
   providerId: "anthropic",
@@ -374,7 +374,7 @@ const anthropic = createCallbackProviderAdapter({
 `ModelCapability` is the canonical schema the router reads — the "columns" your source populates. models.dev is just one built-in source; opt out entirely and bring your own via `createCapabilityCatalog`, which wraps any sync/async loader (a DB query, an internal API, a cached file):
 
 ```ts
-import { createCapabilityCatalog, normalizeModelsDevCatalog } from "swoosh-router";
+import { createCapabilityCatalog, normalizeModelsDevCatalog } from "@swoosh-dev/router";
 
 // Map your own rows onto the ModelCapability shape.
 const catalog = createCapabilityCatalog(async () => {
@@ -393,7 +393,7 @@ const cached = createCapabilityCatalog(() => normalizeModelsDevCatalog(cachedJso
 A catalog lists the *universe* of models; you rarely have access to all of them. Declare what you can actually use **once, at construction** — the config still comes from the catalog, you only name the ids. `filterCapabilityCatalog` wraps any catalog with an allowlist or a predicate:
 
 ```ts
-import { ModelsDevCapabilityCatalog, filterCapabilityCatalog } from "swoosh-router";
+import { ModelsDevCapabilityCatalog, filterCapabilityCatalog } from "@swoosh-dev/router";
 
 // Allowlist exact models (a bare modelId matches across providers):
 const catalog = filterCapabilityCatalog(new ModelsDevCapabilityCatalog(), [
@@ -431,7 +431,7 @@ bun packages/model-router/examples/01-quickstart.ts
 
 Everything is re-exported from the package root.
 
-### swoosh-router — type definitions
+### @swoosh-dev/router — type definitions
 
 ```ts
 type ModelModality = "text" | "image" | "audio" | "video" | "pdf" | "file";
@@ -469,7 +469,7 @@ interface ModelCapability {
      * Per-domain benchmark scores, an open map (e.g. `{ swe_bench: 0.65, gpqa: 0.88,
      * lmarena_elo: 1320 }`). Values are interpreted per key by whoever reads them —
      * see the `byBenchmark` policy. models.dev does not provide these; enrich via
-     * `swoosh-capabilities` or your own overrides.
+     * `@swoosh-dev/capabilities` or your own overrides.
      */
     readonly benchmarks?: Readonly<Record<string, number>>;
 }
@@ -731,23 +731,23 @@ export { type ByBenchmarkOptions, type CallbackProviderOptions, type CapabilityC
 ---
 
 
-## swoosh-capabilities
+## @swoosh-dev/capabilities
 
 > Curated, enriched model dataset (models.dev ∪ web_search / latency / quality / benchmarks).
 
-Install: `npm install swoosh-capabilities` · Source: https://github.com/acalejos/swoosh/tree/main/packages/capabilities
+Install: `npm install @swoosh-dev/capabilities` · Source: https://github.com/acalejos/swoosh/tree/main/packages/capabilities
 
-# swoosh-capabilities
+# @swoosh-dev/capabilities
 
-A curated, ready-to-use model-capability dataset for [`swoosh-router`](../model-router) — the models.dev catalog, narrowed to major providers and **enriched with the things models.dev doesn't carry**: `web_search` support, latency classes, quality scores (which `fastest` / `best_quality` need), and per-domain `benchmarks` (which `byBenchmark` ranks on).
+A curated, ready-to-use model-capability dataset for [`@swoosh-dev/router`](../model-router) — the models.dev catalog, narrowed to major providers and **enriched with the things models.dev doesn't carry**: `web_search` support, latency classes, quality scores (which `fastest` / `best_quality` need), and per-domain `benchmarks` (which `byBenchmark` ranks on).
 
 ```sh
-npm install swoosh-capabilities
+npm install @swoosh-dev/capabilities
 ```
 
 ```ts
-import { ModelRouter } from "swoosh-router";
-import { defaultCatalog } from "swoosh-capabilities";
+import { ModelRouter } from "@swoosh-dev/router";
+import { defaultCatalog } from "@swoosh-dev/capabilities";
 
 const router = new ModelRouter({
   catalog: defaultCatalog(), // bundled snapshot — no network, no API keys
@@ -766,7 +766,7 @@ const router = new ModelRouter({
 
 ## How it's built
 
-`bun run refresh` (see [scripts/build.ts](scripts/build.ts)) pulls `models.dev/api.json`, normalizes it via `swoosh-router`'s `normalizeModelsDevCatalog`, narrows it to a major-provider allowlist (`SWOOSH_PROVIDERS` to override), merges [src/overrides.ts](src/overrides.ts) with `mergeCapabilities`, sorts deterministically, and writes `src/capabilities.generated.json`.
+`bun run refresh` (see [scripts/build.ts](scripts/build.ts)) pulls `models.dev/api.json`, normalizes it via `@swoosh-dev/router`'s `normalizeModelsDevCatalog`, narrows it to a major-provider allowlist (`SWOOSH_PROVIDERS` to override), merges [src/overrides.ts](src/overrides.ts) with `mergeCapabilities`, sorts deterministically, and writes `src/capabilities.generated.json`.
 
 CI runs this on a schedule and opens a PR with the diff ([ci/refresh-capabilities.yml](ci/refresh-capabilities.yml)) — refreshes are **reviewed, never auto-merged**, so a models.dev change can't silently alter routing.
 
@@ -777,8 +777,8 @@ Edit [src/overrides.ts](src/overrides.ts) — small, reviewed entries keyed by `
 Prefer live data plus overrides instead of the bundled snapshot? Use the primitive directly:
 
 ```ts
-import { ModelsDevCapabilityCatalog, createCapabilityCatalog, mergeCapabilities } from "swoosh-router";
-import { defaultOverrides } from "swoosh-capabilities";
+import { ModelsDevCapabilityCatalog, createCapabilityCatalog, mergeCapabilities } from "@swoosh-dev/router";
+import { defaultOverrides } from "@swoosh-dev/capabilities";
 
 const live = new ModelsDevCapabilityCatalog();
 const enriched = createCapabilityCatalog(async () =>
@@ -786,10 +786,10 @@ const enriched = createCapabilityCatalog(async () =>
 );
 ```
 
-### swoosh-capabilities — type definitions
+### @swoosh-dev/capabilities — type definitions
 
 ```ts
-import { CapabilityOverride, ModelCapability, CapabilityCatalog } from 'swoosh-router';
+import { CapabilityOverride, ModelCapability, CapabilityCatalog } from '@swoosh-dev/router';
 
 /**
  * Curated enrichment layered over the models.dev base — the capabilities
@@ -826,24 +826,24 @@ export { capabilities, defaultCatalog, defaultOverrides, meta };
 ---
 
 
-## swoosh-judge
+## @swoosh-dev/judge
 
 > Dynamic policies: classify the prompt with an LLM judge, route by the verdict.
 
-Install: `npm install swoosh-judge` · Source: https://github.com/acalejos/swoosh/tree/main/packages/judge
+Install: `npm install @swoosh-dev/judge` · Source: https://github.com/acalejos/swoosh/tree/main/packages/judge
 
-# swoosh-judge
+# @swoosh-dev/judge
 
-Dynamic routing policies for [`swoosh-router`](../model-router). Classify each request's prompt with an LLM judge (structured output), then route by the verdict — cheap models for small talk, top models for hard problems, search-capable models for current events.
+Dynamic routing policies for [`@swoosh-dev/router`](../model-router). Classify each request's prompt with an LLM judge (structured output), then route by the verdict — cheap models for small talk, top models for hard problems, search-capable models for current events.
 
 ```sh
-npm install swoosh-judge
+npm install @swoosh-dev/judge
 ```
 
 ```ts
-import { ModelRouter } from "swoosh-router";
-import { byBenchmark } from "swoosh-router";
-import { llmJudgePolicy } from "swoosh-judge";
+import { ModelRouter } from "@swoosh-dev/router";
+import { byBenchmark } from "@swoosh-dev/router";
+import { llmJudgePolicy } from "@swoosh-dev/judge";
 
 type Kind = "chat" | "coding" | "research";
 
@@ -878,10 +878,10 @@ await router.run({ ...request, preference: smart });
 | `fallback` | `RoutingPreference \| RoutingPolicy` | On error/unmapped verdict. Defaults to `"balanced"`. |
 | `cache` | `boolean \| { key?, max? }` | Cache verdicts by prompt. Defaults to on. |
 
-### swoosh-judge — type definitions
+### @swoosh-dev/judge — type definitions
 
 ```ts
-import { TaskRequest, RoutingPreference, RoutingPolicy } from 'swoosh-router';
+import { TaskRequest, RoutingPreference, RoutingPolicy } from '@swoosh-dev/router';
 
 /** What the classifier sees: the request, plus a best-effort prompt string. */
 interface JudgeInput {
@@ -930,23 +930,23 @@ export { type JudgeInput, type LlmJudgePolicyOptions, llmJudgePolicy };
 ---
 
 
-## swoosh-ai-sdk
+## @swoosh-dev/ai-sdk
 
 > Vercel AI SDK provider adapter.
 
-Install: `npm install swoosh-ai-sdk` · Source: https://github.com/acalejos/swoosh/tree/main/packages/ai-sdk
+Install: `npm install @swoosh-dev/ai-sdk` · Source: https://github.com/acalejos/swoosh/tree/main/packages/ai-sdk
 
-# swoosh-ai-sdk
+# @swoosh-dev/ai-sdk
 
-Vercel AI SDK provider adapter for [`swoosh-router`](../model-router). Kept separate so the core router stays free of the `ai` dependency — install this only if you route through the AI SDK.
+Vercel AI SDK provider adapter for [`@swoosh-dev/router`](../model-router). Kept separate so the core router stays free of the `ai` dependency — install this only if you route through the AI SDK.
 
 ```sh
-npm install swoosh-ai-sdk ai
+npm install @swoosh-dev/ai-sdk ai
 ```
 
 ```ts
-import { ModelRouter, ModelsDevCapabilityCatalog } from "swoosh-router";
-import { createAiSdkProviderAdapter } from "swoosh-ai-sdk";
+import { ModelRouter, ModelsDevCapabilityCatalog } from "@swoosh-dev/router";
+import { createAiSdkProviderAdapter } from "@swoosh-dev/ai-sdk";
 import { google } from "@ai-sdk/google";
 import { generateObject } from "ai";
 
@@ -964,10 +964,10 @@ const router = new ModelRouter({
 
 `models` maps each `modelId` from the catalog to its AI SDK model instance; the router picks the capability and this adapter resolves and calls it. `ai` is a peer dependency.
 
-### swoosh-ai-sdk — type definitions
+### @swoosh-dev/ai-sdk — type definitions
 
 ```ts
-import { ProviderAdapter } from 'swoosh-router';
+import { ProviderAdapter } from '@swoosh-dev/router';
 
 interface AiSdkProviderOptions {
     readonly providerId: string;
@@ -1026,7 +1026,7 @@ import {
   createCallbackProviderAdapter,
   createStaticCapabilityCatalog,
   ModelRouter,
-} from "swoosh-router";
+} from "@swoosh-dev/router";
 import { exampleCatalog } from "./shared/catalog";
 import { printAttempts, printPlan } from "./shared/print";
 
@@ -1084,7 +1084,7 @@ import {
   createCallbackProviderAdapter,
   createStaticCapabilityCatalog,
   ModelRouter,
-} from "swoosh-router";
+} from "@swoosh-dev/router";
 import { exampleCatalog } from "./shared/catalog";
 import { printPlan } from "./shared/print";
 
@@ -1127,7 +1127,7 @@ import {
   createCallbackProviderAdapter,
   createStaticCapabilityCatalog,
   ModelRouter,
-} from "swoosh-router";
+} from "@swoosh-dev/router";
 import { exampleCatalog } from "./shared/catalog";
 import { printPlan } from "./shared/print";
 
@@ -1186,7 +1186,7 @@ import {
   createStaticCapabilityCatalog,
   ModelRouter,
   type RoutingPolicy,
-} from "swoosh-router";
+} from "@swoosh-dev/router";
 import { exampleCatalog } from "./shared/catalog";
 import { printPlan } from "./shared/print";
 
@@ -1236,7 +1236,7 @@ import {
   createCallbackProviderAdapter,
   createStaticCapabilityCatalog,
   ModelRouter,
-} from "swoosh-router";
+} from "@swoosh-dev/router";
 import { exampleCatalog } from "./shared/catalog";
 import { printAttempts, printPlan } from "./shared/print";
 
@@ -1293,7 +1293,7 @@ import {
   createCapabilityCatalog,
   type ModelCapability,
   ModelRouter,
-} from "swoosh-router";
+} from "@swoosh-dev/router";
 import { printPlan } from "./shared/print";
 
 // Pretend this is a table in your database. The "columns" are exactly the
@@ -1366,7 +1366,7 @@ import {
   filterCapabilityCatalog,
   hasApiKey,
   ModelRouter,
-} from "swoosh-router";
+} from "@swoosh-dev/router";
 import { exampleCatalog } from "./shared/catalog";
 import { printPlan } from "./shared/print";
 
@@ -1422,7 +1422,7 @@ import {
   createCallbackProviderAdapter,
   createStaticCapabilityCatalog,
   ModelRouter,
-} from "swoosh-router";
+} from "@swoosh-dev/router";
 import { exampleCatalog } from "./shared/catalog";
 import { printPlan } from "./shared/print";
 
@@ -1484,7 +1484,7 @@ import {
   loadBalance,
   ModelRouter,
   roundRobin,
-} from "swoosh-router";
+} from "@swoosh-dev/router";
 
 // Three image-generation models; replicate and openai are the two cheapest.
 const imageCatalog = createStaticCapabilityCatalog([
@@ -1557,7 +1557,7 @@ import {
   createStaticCapabilityCatalog,
   type ModelCapability,
   ModelRouter,
-} from "swoosh-router";
+} from "@swoosh-dev/router";
 import { printPlan } from "./shared/print";
 
 const model = (
@@ -1621,8 +1621,8 @@ import {
   createStaticCapabilityCatalog,
   type ModelCapability,
   ModelRouter,
-} from "swoosh-router";
-import { llmJudgePolicy } from "swoosh-judge";
+} from "@swoosh-dev/router";
+import { llmJudgePolicy } from "@swoosh-dev/judge";
 import { printPlan } from "./shared/print";
 
 const model = (providerId: string, modelId: string, extra: Partial<ModelCapability>): ModelCapability => ({

@@ -1,5 +1,5 @@
-import { createAiSdkProviderAdapter } from "swoosh-ai-sdk";
-import { hasApiKey, type ProviderAdapter } from "swoosh-router";
+import { createAiSdkProviderAdapter } from "@swoosh-dev/ai-sdk";
+import { hasApiKey, type ProviderAdapter } from "@swoosh-dev/router";
 
 /** providerId (as used by models.dev / the catalog) → its AI SDK package + factory export. */
 export interface ProviderEntry {

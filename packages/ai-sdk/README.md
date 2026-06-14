@@ -1,14 +1,14 @@
-# swoosh-ai-sdk
+# @swoosh-dev/ai-sdk
 
-Vercel AI SDK provider adapter for [`swoosh-router`](../model-router). Kept separate so the core router stays free of the `ai` dependency — install this only if you route through the AI SDK.
+Vercel AI SDK provider adapter for [`@swoosh-dev/router`](../model-router). Kept separate so the core router stays free of the `ai` dependency — install this only if you route through the AI SDK.
 
 ```sh
-npm install swoosh-ai-sdk ai
+npm install @swoosh-dev/ai-sdk ai
 ```
 
 ```ts
-import { ModelRouter, ModelsDevCapabilityCatalog } from "swoosh-router";
-import { createAiSdkProviderAdapter } from "swoosh-ai-sdk";
+import { ModelRouter, ModelsDevCapabilityCatalog } from "@swoosh-dev/router";
+import { createAiSdkProviderAdapter } from "@swoosh-dev/ai-sdk";
 import { google } from "@ai-sdk/google";
 import { generateObject } from "ai";
 

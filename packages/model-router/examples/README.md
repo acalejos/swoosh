@@ -18,6 +18,6 @@ bun packages/model-router/examples/01-quickstart.ts
 | [08-web-search.ts](08-web-search.ts) | Route a current-events task to a web-search-capable model via `requiresFeatures: ["web_search"]` |
 | [09-load-balancing.ts](09-load-balancing.ts) | `loadBalance` spreads across the cheapest providers; `roundRobin` rotates API keys within one |
 | [10-benchmark-routing.ts](10-benchmark-routing.ts) | Route by benchmark with `byBenchmark` — a named score or a composite scoring function |
-| [11-llm-judge.ts](11-llm-judge.ts) | Dynamic routing: an LLM judge classifies the prompt, then routes by verdict (`swoosh-judge`) |
+| [11-llm-judge.ts](11-llm-judge.ts) | Dynamic routing: an LLM judge classifies the prompt, then routes by verdict (`@swoosh-dev/judge`) |
 
 To call real providers, replace the callback adapters with `createAiSdkProviderAdapter` — see the [package README](../README.md#quick-start) for the wiring.

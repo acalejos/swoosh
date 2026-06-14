@@ -3,8 +3,8 @@ import {
   createStaticCapabilityCatalog,
   ModelRouter,
   type ModelCapability,
-} from "swoosh-router";
-import { createAiSdkProviderAdapter } from "swoosh-ai-sdk";
+} from "@swoosh-dev/router";
+import { createAiSdkProviderAdapter } from "@swoosh-dev/ai-sdk";
 
 const cap = (modelId: string): ModelCapability => ({
   providerId: "openai", providerName: "OpenAI", modelId, modelName: modelId,

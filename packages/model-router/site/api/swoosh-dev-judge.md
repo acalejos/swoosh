@@ -1,21 +1,21 @@
-# swoosh-judge
+# @swoosh-dev/judge
 
 > Dynamic policies: classify the prompt with an LLM judge, route by the verdict.
 
-`npm install swoosh-judge` · [source](https://github.com/acalejos/swoosh/tree/main/packages/judge)
+`npm install @swoosh-dev/judge` · [source](https://github.com/acalejos/swoosh/tree/main/packages/judge)
 
-# swoosh-judge
+# @swoosh-dev/judge
 
-Dynamic routing policies for [`swoosh-router`](../model-router). Classify each request's prompt with an LLM judge (structured output), then route by the verdict — cheap models for small talk, top models for hard problems, search-capable models for current events.
+Dynamic routing policies for [`@swoosh-dev/router`](../model-router). Classify each request's prompt with an LLM judge (structured output), then route by the verdict — cheap models for small talk, top models for hard problems, search-capable models for current events.
 
 ```sh
-npm install swoosh-judge
+npm install @swoosh-dev/judge
 ```
 
 ```ts
-import { ModelRouter } from "swoosh-router";
-import { byBenchmark } from "swoosh-router";
-import { llmJudgePolicy } from "swoosh-judge";
+import { ModelRouter } from "@swoosh-dev/router";
+import { byBenchmark } from "@swoosh-dev/router";
+import { llmJudgePolicy } from "@swoosh-dev/judge";
 
 type Kind = "chat" | "coding" | "research";
 
@@ -55,7 +55,7 @@ await router.run({ ...request, preference: smart });
 Generated from source — the authoritative public API.
 
 ```ts
-import { TaskRequest, RoutingPreference, RoutingPolicy } from 'swoosh-router';
+import { TaskRequest, RoutingPreference, RoutingPolicy } from '@swoosh-dev/router';
 
 /** What the classifier sees: the request, plus a best-effort prompt string. */
 interface JudgeInput {

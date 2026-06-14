@@ -24,12 +24,15 @@ const SITE_URL = "https://acalejos.github.io/swoosh";
 
 // dir → npm name + one-line blurb (order = recommended reading order)
 const PACKAGES = [
-  { dir: "sdk", name: "swoosh-sdk", blurb: "Batteries-included drop-in: createRouter(), auto-wired providers, re-exports everything." },
-  { dir: "model-router", name: "swoosh-router", blurb: "Zero-dependency core: intent + policy routing, inspectable plans, automatic fallback." },
-  { dir: "capabilities", name: "swoosh-capabilities", blurb: "Curated, enriched model dataset (models.dev ∪ web_search / latency / quality / benchmarks)." },
-  { dir: "judge", name: "swoosh-judge", blurb: "Dynamic policies: classify the prompt with an LLM judge, route by the verdict." },
-  { dir: "ai-sdk", name: "swoosh-ai-sdk", blurb: "Vercel AI SDK provider adapter." },
+  { dir: "sdk", name: "@swoosh-dev/sdk", blurb: "Batteries-included drop-in: createRouter(), auto-wired providers, re-exports everything." },
+  { dir: "model-router", name: "@swoosh-dev/router", blurb: "Zero-dependency core: intent + policy routing, inspectable plans, automatic fallback." },
+  { dir: "capabilities", name: "@swoosh-dev/capabilities", blurb: "Curated, enriched model dataset (models.dev ∪ web_search / latency / quality / benchmarks)." },
+  { dir: "judge", name: "@swoosh-dev/judge", blurb: "Dynamic policies: classify the prompt with an LLM judge, route by the verdict." },
+  { dir: "ai-sdk", name: "@swoosh-dev/ai-sdk", blurb: "Vercel AI SDK provider adapter." },
 ];
+
+// "@swoosh-dev/router" -> "swoosh-dev-router" for flat, URL-safe filenames
+const slug = (name: string) => name.replace(/^@/, "").replace(/\//g, "-");
 
 const read = (p: string) => (existsSync(p) ? Bun.file(p).text() : Promise.resolve(""));
 const stripFrontMatterBadges = (md: string) =>
@@ -108,7 +111,7 @@ async function main() {
       "```",
       "",
     ].join("\n");
-    await Bun.write(join(SITE, "api", `${p.name}.md`), md);
+    await Bun.write(join(SITE, "api", `${slug(p.name)}.md`), md);
   }
 
   // ---- llms.txt (concise index) ----
@@ -117,10 +120,10 @@ async function main() {
     "",
     "> Just give me a model. Intent-driven, policy-driven model routing for TypeScript: declare what a task needs and how to choose; swoosh plans the best model, explains every rejection, and falls back automatically.",
     "",
-    "swoosh is published as a set of unscoped npm packages (`swoosh-*`). Start with `swoosh-sdk` for the batteries-included drop-in, or compose the zero-dependency `swoosh-router` core directly. Each package page below embeds its full, generated TypeScript API.",
+    "swoosh is published as a set of scoped npm packages (`@swoosh-dev/*`). Start with `@swoosh-dev/sdk` for the batteries-included drop-in, or compose the zero-dependency `@swoosh-dev/router` core directly. Each package page below embeds its full, generated TypeScript API.",
     "",
     "## Packages",
-    ...pkgs.map((p) => `- [${p.name}](${SITE_URL}/api/${p.name}.md): ${p.blurb}`),
+    ...pkgs.map((p) => `- [${p.name}](${SITE_URL}/api/${slug(p.name)}.md): ${p.blurb}`),
     "",
     "## Examples",
     "Runnable, offline (simulated providers, no API keys):",

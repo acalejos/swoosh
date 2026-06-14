@@ -7,7 +7,7 @@ import {
   createStaticCapabilityCatalog,
   type ModelCapability,
   ModelRouter,
-} from "swoosh-router";
+} from "@swoosh-dev/router";
 import { printPlan } from "./shared/print";
 
 const model = (

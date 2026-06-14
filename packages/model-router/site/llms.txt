@@ -2,14 +2,14 @@
 
 > Just give me a model. Intent-driven, policy-driven model routing for TypeScript: declare what a task needs and how to choose; swoosh plans the best model, explains every rejection, and falls back automatically.
 
-swoosh is published as a set of unscoped npm packages (`swoosh-*`). Start with `swoosh-sdk` for the batteries-included drop-in, or compose the zero-dependency `swoosh-router` core directly. Each package page below embeds its full, generated TypeScript API.
+swoosh is published as a set of scoped npm packages (`@swoosh-dev/*`). Start with `@swoosh-dev/sdk` for the batteries-included drop-in, or compose the zero-dependency `@swoosh-dev/router` core directly. Each package page below embeds its full, generated TypeScript API.
 
 ## Packages
-- [swoosh-sdk](https://acalejos.github.io/swoosh/api/swoosh-sdk.md): Batteries-included drop-in: createRouter(), auto-wired providers, re-exports everything.
-- [swoosh-router](https://acalejos.github.io/swoosh/api/swoosh-router.md): Zero-dependency core: intent + policy routing, inspectable plans, automatic fallback.
-- [swoosh-capabilities](https://acalejos.github.io/swoosh/api/swoosh-capabilities.md): Curated, enriched model dataset (models.dev ∪ web_search / latency / quality / benchmarks).
-- [swoosh-judge](https://acalejos.github.io/swoosh/api/swoosh-judge.md): Dynamic policies: classify the prompt with an LLM judge, route by the verdict.
-- [swoosh-ai-sdk](https://acalejos.github.io/swoosh/api/swoosh-ai-sdk.md): Vercel AI SDK provider adapter.
+- [@swoosh-dev/sdk](https://acalejos.github.io/swoosh/api/swoosh-dev-sdk.md): Batteries-included drop-in: createRouter(), auto-wired providers, re-exports everything.
+- [@swoosh-dev/router](https://acalejos.github.io/swoosh/api/swoosh-dev-router.md): Zero-dependency core: intent + policy routing, inspectable plans, automatic fallback.
+- [@swoosh-dev/capabilities](https://acalejos.github.io/swoosh/api/swoosh-dev-capabilities.md): Curated, enriched model dataset (models.dev ∪ web_search / latency / quality / benchmarks).
+- [@swoosh-dev/judge](https://acalejos.github.io/swoosh/api/swoosh-dev-judge.md): Dynamic policies: classify the prompt with an LLM judge, route by the verdict.
+- [@swoosh-dev/ai-sdk](https://acalejos.github.io/swoosh/api/swoosh-dev-ai-sdk.md): Vercel AI SDK provider adapter.
 
 ## Examples
 Runnable, offline (simulated providers, no API keys):

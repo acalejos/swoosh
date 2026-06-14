@@ -44,7 +44,7 @@ export interface ModelCapability {
    * Per-domain benchmark scores, an open map (e.g. `{ swe_bench: 0.65, gpqa: 0.88,
    * lmarena_elo: 1320 }`). Values are interpreted per key by whoever reads them —
    * see the `byBenchmark` policy. models.dev does not provide these; enrich via
-   * `swoosh-capabilities` or your own overrides.
+   * `@swoosh-dev/capabilities` or your own overrides.
    */
   readonly benchmarks?: Readonly<Record<string, number>>;
 }

@@ -5,7 +5,7 @@ import {
   type RoutingPolicyContext,
   type RoutingPreference,
   type TaskRequest,
-} from "swoosh-router";
+} from "@swoosh-dev/router";
 
 /** What the classifier sees: the request, plus a best-effort prompt string. */
 export interface JudgeInput {
