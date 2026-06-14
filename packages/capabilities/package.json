@@ -1,6 +1,6 @@
 {
   "name": "@swoosh-dev/capabilities",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Curated default model-capability dataset for @swoosh-dev/router \u2014 models.dev enriched with features it doesn't carry (web_search, latency classes, quality scores).",
   "license": "Apache-2.0",
   "type": "module",

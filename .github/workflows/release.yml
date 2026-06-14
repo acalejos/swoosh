@@ -42,6 +42,16 @@ jobs:
             echo "::group::swoosh-$pkg"
             args="--access public"
             [ "${DRY_RUN:-false}" = "true" ] && args="$args --dry-run"
-            ( cd "packages/$pkg" && npm publish $args )
+            ( cd "packages/$pkg"
+              # npm does not rewrite the workspace: protocol on publish (bun/pnpm do),
+              # so replace workspace:* -> ^<version> before packing.
+              node -e '
+                const fs=require("fs"),p=require("./package.json"),v=p.version;
+                for(const f of ["dependencies","peerDependencies","optionalDependencies"])
+                  for(const k in (p[f]||{}))
+                    if(String(p[f][k]).startsWith("workspace:")) p[f][k]="^"+v;
+                fs.writeFileSync("package.json",JSON.stringify(p,null,2)+"\n");
+              '
+              npm publish $args )
             echo "::endgroup::"
           done
