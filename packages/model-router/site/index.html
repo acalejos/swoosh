@@ -23,6 +23,16 @@
   nav a:hover { color:var(--sig); }
   nav a.gh { background:var(--ink); color:var(--paper); padding:9px 18px; border-radius:30px; }
 
+  /* keep the sticky header on one line on phones */
+  @media (max-width:760px){
+    .frame { padding:0 20px; }
+    .bar { height:62px; }
+    .wm { font-size:21px; }
+    nav a.sec { display:none; }
+    nav a { margin-left:16px; font-size:13px; }
+    nav a.gh { padding:8px 14px; }
+  }
+
   .hero { display:grid; grid-template-columns:1fr 1fr; gap:48px; align-items:center; padding:60px 0 80px; }
   h1.big { font-family:"Bricolage Grotesque",sans-serif; font-weight:800; font-size:clamp(56px,7.6vw,104px); line-height:.92; letter-spacing:-.04em; }
   h1.big .sw { color:var(--sig); }
@@ -91,7 +101,7 @@
 <header><div class="frame bar">
   <a class="wm" href="#"><svg width="27" height="27" viewBox="0 0 26 26" fill="none"><path d="M4.5 19.5 C 11 19.5, 13.5 9, 19 7" stroke="#e8490f" stroke-width="3" stroke-linecap="round"/><g transform="translate(19 7) rotate(-18)"><path d="M6.5 0 L -2 -3.6 L -2 3.6 Z" fill="#e8490f"/></g></svg>swoosh</a>
   <nav>
-    <a href="#how">How it works</a><a href="#plan">The plan</a><a href="#packages">Packages</a><a href="concepts/logos.html">Brand</a><a href="docs.html">Docs</a><a class="gh" href="https://github.com/acalejos/swoosh">GitHub ↗</a>
+    <a class="sec" href="#how">How it works</a><a class="sec" href="#plan">The plan</a><a class="sec" href="#packages">Packages</a><a class="sec" href="concepts/logos.html">Brand</a><a href="docs.html">Docs</a><a class="gh" href="https://github.com/acalejos/swoosh">GitHub ↗</a>
   </nav>
 </div></header>
 

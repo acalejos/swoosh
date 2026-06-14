@@ -8,3 +8,6 @@ coverage/
 *.tsbuildinfo
 .idea/
 .vscode/
+
+# local dev (machine-specific preview launch config)
+.claude/
