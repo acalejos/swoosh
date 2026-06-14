@@ -196,255 +196,255 @@
       <h2><span class="no">01</span> Quickstart</h2>
       <p class="lead">Route a support ticket to the best available model and get structured output.</p>
       <p><code>bun packages/model-router/examples/01-quickstart.ts</code> &middot; <a class="inline" href="https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/01-quickstart.ts">View source &#8599;</a></p>
-      <pre><code>// Route a support ticket to the best available model and get structured output.
-// Run from the repo root: bun packages/model-router/examples/01-quickstart.ts
-import {
+      <pre><code><span class="tk-c">// Route a support ticket to the best available model and get structured output.</span>
+<span class="tk-c">// Run from the repo root: bun packages/model-router/examples/01-quickstart.ts</span>
+<span class="tk-k">import</span> {
   createCallbackProviderAdapter,
   createStaticCapabilityCatalog,
-  ModelRouter,
-} from "@swoosh-dev/router";
-import { exampleCatalog } from "./shared/catalog";
-import { printAttempts, printPlan } from "./shared/print";
+  <span class="tk-t">ModelRouter</span>,
+} <span class="tk-k">from</span> <span class="tk-s">"@swoosh-dev/router"</span>;
+<span class="tk-k">import</span> { exampleCatalog } <span class="tk-k">from</span> <span class="tk-s">"./shared/catalog"</span>;
+<span class="tk-k">import</span> { printAttempts, printPlan } <span class="tk-k">from</span> <span class="tk-s">"./shared/print"</span>;
 
-interface Triage {
-  category: "billing" | "bug" | "how-to";
-  urgency: "low" | "high";
+<span class="tk-k">interface</span> <span class="tk-t">Triage</span> {
+  category: <span class="tk-s">"billing"</span> | <span class="tk-s">"bug"</span> | <span class="tk-s">"how-to"</span>;
+  urgency: <span class="tk-s">"low"</span> | <span class="tk-s">"high"</span>;
 }
 
-// Simulated providers. Swap these for createAiSdkProviderAdapter in a real app.
-const providers = [
+<span class="tk-c">// Simulated providers. Swap these for createAiSdkProviderAdapter in a real app.</span>
+<span class="tk-k">const</span> providers = [
   createCallbackProviderAdapter({
-    providerId: "google",
-    generateObject: () =&gt; ({ category: "billing", urgency: "high" }) satisfies Triage,
+    providerId: <span class="tk-s">"google"</span>,
+    generateObject: () =&gt; ({ category: <span class="tk-s">"billing"</span>, urgency: <span class="tk-s">"high"</span> }) <span class="tk-k">satisfies</span> <span class="tk-t">Triage</span>,
   }),
   createCallbackProviderAdapter({
-    providerId: "anthropic",
-    generateObject: () =&gt; ({ category: "billing", urgency: "high" }) satisfies Triage,
+    providerId: <span class="tk-s">"anthropic"</span>,
+    generateObject: () =&gt; ({ category: <span class="tk-s">"billing"</span>, urgency: <span class="tk-s">"high"</span> }) <span class="tk-k">satisfies</span> <span class="tk-t">Triage</span>,
   }),
 ];
 
-const router = new ModelRouter({
+<span class="tk-k">const</span> router = <span class="tk-k">new</span> <span class="tk-t">ModelRouter</span>({
   catalog: createStaticCapabilityCatalog(exampleCatalog),
   providers,
-  defaultPreference: "balanced",
+  defaultPreference: <span class="tk-s">"balanced"</span>,
 });
 
-const ticket = "I was charged twice for my subscription this month. Please fix this today.";
+<span class="tk-k">const</span> ticket = <span class="tk-s">"I was charged twice for my subscription this month. Please fix this today."</span>;
 
-const result = await router.run&lt;string, Triage&gt;({
-  task: "support.triage",
+<span class="tk-k">const</span> result = <span class="tk-k">await</span> router.run&lt;string, <span class="tk-t">Triage</span>&gt;({
+  task: <span class="tk-s">"support.triage"</span>,
   input: ticket,
-  prompt: `Classify this support ticket: ${ticket}`,
-  inputModalities: ["text"],
-  requiresFeatures: ["structured_output"],
+  prompt: <span class="tk-s">`Classify this support ticket: ${ticket}`</span>,
+  inputModalities: [<span class="tk-s">"text"</span>],
+  requiresFeatures: [<span class="tk-s">"structured_output"</span>],
 });
 
 printPlan(result.plan);
 printAttempts(result.attempts);
-console.log("output     ", result.output);</code></pre>
+console.log(<span class="tk-s">"output     "</span>, result.output);</code></pre>
     </section>
     <section class="doc" id="ex-02-cost-guardrails">
       <h2><span class="no">02</span> Cost guardrails</h2>
       <p class="lead">Summarize a long document with a hard budget. Models whose estimated cost exceeds maxCostUsd are rejected at planning time, before any tokens are spent.</p>
       <p><code>bun packages/model-router/examples/02-cost-guardrails.ts</code> &middot; <a class="inline" href="https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/02-cost-guardrails.ts">View source &#8599;</a></p>
-      <pre><code>// Summarize a long document with a hard budget. Models whose estimated cost
-// exceeds maxCostUsd are rejected at planning time, before any tokens are spent.
-// Run from the repo root: bun packages/model-router/examples/02-cost-guardrails.ts
-import {
+      <pre><code><span class="tk-c">// Summarize a long document with a hard budget. Models whose estimated cost</span>
+<span class="tk-c">// exceeds maxCostUsd are rejected at planning time, before any tokens are spent.</span>
+<span class="tk-c">// Run from the repo root: bun packages/model-router/examples/02-cost-guardrails.ts</span>
+<span class="tk-k">import</span> {
   createCallbackProviderAdapter,
   createStaticCapabilityCatalog,
-  ModelRouter,
-} from "@swoosh-dev/router";
-import { exampleCatalog } from "./shared/catalog";
-import { printPlan } from "./shared/print";
+  <span class="tk-t">ModelRouter</span>,
+} <span class="tk-k">from</span> <span class="tk-s">"@swoosh-dev/router"</span>;
+<span class="tk-k">import</span> { exampleCatalog } <span class="tk-k">from</span> <span class="tk-s">"./shared/catalog"</span>;
+<span class="tk-k">import</span> { printPlan } <span class="tk-k">from</span> <span class="tk-s">"./shared/print"</span>;
 
-const router = new ModelRouter({
+<span class="tk-k">const</span> router = <span class="tk-k">new</span> <span class="tk-t">ModelRouter</span>({
   catalog: createStaticCapabilityCatalog(exampleCatalog),
-  providers: ["google", "anthropic", "openai", "mistral", "local"].map((providerId) =&gt;
+  providers: [<span class="tk-s">"google"</span>, <span class="tk-s">"anthropic"</span>, <span class="tk-s">"openai"</span>, <span class="tk-s">"mistral"</span>, <span class="tk-s">"local"</span>].map((providerId) =&gt;
     createCallbackProviderAdapter({ providerId }),
   ),
 });
 
-const plan = await router.plan({
-  task: "report.summarize",
-  input: "(a 400-page incident report)",
-  inputModalities: ["text"],
-  requiresFeatures: ["structured_output"],
-  estimatedInputTokens: 150_000,
-  estimatedOutputTokens: 4_000,
-  preference: "cheapest",
-  constraints: { maxCostUsd: 0.1 },
+<span class="tk-k">const</span> plan = <span class="tk-k">await</span> router.plan({
+  task: <span class="tk-s">"report.summarize"</span>,
+  input: <span class="tk-s">"(a 400-page incident report)"</span>,
+  inputModalities: [<span class="tk-s">"text"</span>],
+  requiresFeatures: [<span class="tk-s">"structured_output"</span>],
+  estimatedInputTokens: <span class="tk-n">150_000</span>,
+  estimatedOutputTokens: <span class="tk-n">4_000</span>,
+  preference: <span class="tk-s">"cheapest"</span>,
+  constraints: { maxCostUsd: <span class="tk-n">0.1</span> },
 });
 
-// claude-opus-4-8 is rejected: 150k input tokens at $15/M already costs $2.25.
-// gpt-4o and mistral-large are rejected on context window, not cost.
+<span class="tk-c">// claude-opus-4-8 is rejected: 150k input tokens at $15/M already costs $2.25.</span>
+<span class="tk-c">// gpt-4o and mistral-large are rejected on context window, not cost.</span>
 printPlan(plan);</code></pre>
     </section>
     <section class="doc" id="ex-03-multimodal-routing">
       <h2><span class="no">03</span> Multimodal routing</h2>
       <p class="lead">Extract line items from a photographed receipt. Declaring image input automatically filters out text-only models — no manual model lists.</p>
       <p><code>bun packages/model-router/examples/03-multimodal-routing.ts</code> &middot; <a class="inline" href="https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/03-multimodal-routing.ts">View source &#8599;</a></p>
-      <pre><code>// Extract line items from a photographed receipt. Declaring image input
-// automatically filters out text-only models — no manual model lists.
-// Run from the repo root: bun packages/model-router/examples/03-multimodal-routing.ts
-import {
+      <pre><code><span class="tk-c">// Extract line items from a photographed receipt. Declaring image input</span>
+<span class="tk-c">// automatically filters out text-only models — no manual model lists.</span>
+<span class="tk-c">// Run from the repo root: bun packages/model-router/examples/03-multimodal-routing.ts</span>
+<span class="tk-k">import</span> {
   createCallbackProviderAdapter,
   createStaticCapabilityCatalog,
-  ModelRouter,
-} from "@swoosh-dev/router";
-import { exampleCatalog } from "./shared/catalog";
-import { printPlan } from "./shared/print";
+  <span class="tk-t">ModelRouter</span>,
+} <span class="tk-k">from</span> <span class="tk-s">"@swoosh-dev/router"</span>;
+<span class="tk-k">import</span> { exampleCatalog } <span class="tk-k">from</span> <span class="tk-s">"./shared/catalog"</span>;
+<span class="tk-k">import</span> { printPlan } <span class="tk-k">from</span> <span class="tk-s">"./shared/print"</span>;
 
-interface Receipt {
+<span class="tk-k">interface</span> <span class="tk-t">Receipt</span> {
   merchant: string;
   totalCents: number;
   lineItems: { label: string; cents: number }[];
 }
 
-const router = new ModelRouter({
+<span class="tk-k">const</span> router = <span class="tk-k">new</span> <span class="tk-t">ModelRouter</span>({
   catalog: createStaticCapabilityCatalog(exampleCatalog),
-  providers: ["google", "anthropic", "openai", "mistral", "local"].map((providerId) =&gt;
+  providers: [<span class="tk-s">"google"</span>, <span class="tk-s">"anthropic"</span>, <span class="tk-s">"openai"</span>, <span class="tk-s">"mistral"</span>, <span class="tk-s">"local"</span>].map((providerId) =&gt;
     createCallbackProviderAdapter({
       providerId,
       generateObject: () =&gt;
         ({
-          merchant: "Blue Bottle Coffee",
-          totalCents: 1250,
+          merchant: <span class="tk-s">"Blue Bottle Coffee"</span>,
+          totalCents: <span class="tk-n">1250</span>,
           lineItems: [
-            { label: "Latte", cents: 650 },
-            { label: "Croissant", cents: 600 },
+            { label: <span class="tk-s">"Latte"</span>, cents: <span class="tk-n">650</span> },
+            { label: <span class="tk-s">"Croissant"</span>, cents: <span class="tk-n">600</span> },
           ],
-        }) satisfies Receipt,
+        }) <span class="tk-k">satisfies</span> <span class="tk-t">Receipt</span>,
     }),
   ),
 });
 
-const result = await router.run&lt;{ imageBase64: string }, Receipt&gt;({
-  task: "receipt.extract",
-  input: { imageBase64: "(receipt photo)" },
-  prompt: "Extract the merchant, total, and line items from this receipt.",
-  inputModalities: ["text", "image"],
-  requiresFeatures: ["structured_output"],
-  preference: "cheapest",
+<span class="tk-k">const</span> result = <span class="tk-k">await</span> router.run&lt;{ imageBase64: string }, <span class="tk-t">Receipt</span>&gt;({
+  task: <span class="tk-s">"receipt.extract"</span>,
+  input: { imageBase64: <span class="tk-s">"(receipt photo)"</span> },
+  prompt: <span class="tk-s">"Extract the merchant, total, and line items from this receipt."</span>,
+  inputModalities: [<span class="tk-s">"text"</span>, <span class="tk-s">"image"</span>],
+  requiresFeatures: [<span class="tk-s">"structured_output"</span>],
+  preference: <span class="tk-s">"cheapest"</span>,
 });
 
-// mistral-large and llama-3.3-70b are rejected: text-only input.
+<span class="tk-c">// mistral-large and llama-3.3-70b are rejected: text-only input.</span>
 printPlan(result.plan);
-console.log("output     ", result.output);</code></pre>
+console.log(<span class="tk-s">"output     "</span>, result.output);</code></pre>
     </section>
     <section class="doc" id="ex-04-custom-policy">
       <h2><span class="no">04</span> Custom policy</h2>
       <p class="lead">Routing policies are plain functions. This one keeps traffic inside EU-hosted providers for data-residency reasons, then picks the cheapest.</p>
       <p><code>bun packages/model-router/examples/04-custom-policy.ts</code> &middot; <a class="inline" href="https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/04-custom-policy.ts">View source &#8599;</a></p>
-      <pre><code>// Routing policies are plain functions. This one keeps traffic inside
-// EU-hosted providers for data-residency reasons, then picks the cheapest.
-// Run from the repo root: bun packages/model-router/examples/04-custom-policy.ts
-import {
+      <pre><code><span class="tk-c">// Routing policies are plain functions. This one keeps traffic inside</span>
+<span class="tk-c">// EU-hosted providers for data-residency reasons, then picks the cheapest.</span>
+<span class="tk-c">// Run from the repo root: bun packages/model-router/examples/04-custom-policy.ts</span>
+<span class="tk-k">import</span> {
   createCallbackProviderAdapter,
   createStaticCapabilityCatalog,
-  ModelRouter,
-  type RoutingPolicy,
-} from "@swoosh-dev/router";
-import { exampleCatalog } from "./shared/catalog";
-import { printPlan } from "./shared/print";
+  <span class="tk-t">ModelRouter</span>,
+  <span class="tk-k">type</span> <span class="tk-t">RoutingPolicy</span>,
+} <span class="tk-k">from</span> <span class="tk-s">"@swoosh-dev/router"</span>;
+<span class="tk-k">import</span> { exampleCatalog } <span class="tk-k">from</span> <span class="tk-s">"./shared/catalog"</span>;
+<span class="tk-k">import</span> { printPlan } <span class="tk-k">from</span> <span class="tk-s">"./shared/print"</span>;
 
-const EU_HOSTED = new Set(["mistral", "local"]);
+<span class="tk-k">const</span> <span class="tk-t">EU_HOSTED</span> = <span class="tk-k">new</span> <span class="tk-t">Set</span>([<span class="tk-s">"mistral"</span>, <span class="tk-s">"local"</span>]);
 
-const euResidencyThenCheapest: RoutingPolicy = ({ candidates }) =&gt;
+<span class="tk-k">const</span> euResidencyThenCheapest: <span class="tk-t">RoutingPolicy</span> = ({ candidates }) =&gt;
   candidates
-    .filter((candidate) =&gt; EU_HOSTED.has(candidate.capability.providerId))
+    .filter((candidate) =&gt; <span class="tk-t">EU_HOSTED</span>.has(candidate.capability.providerId))
     .sort(
       (left, right) =&gt;
-        (left.estimatedCostUsd ?? Number.POSITIVE_INFINITY) -
-        (right.estimatedCostUsd ?? Number.POSITIVE_INFINITY),
+        (left.estimatedCostUsd ?? <span class="tk-t">Number</span>.<span class="tk-t">POSITIVE_INFINITY</span>) -
+        (right.estimatedCostUsd ?? <span class="tk-t">Number</span>.<span class="tk-t">POSITIVE_INFINITY</span>),
     );
 
-const router = new ModelRouter({
+<span class="tk-k">const</span> router = <span class="tk-k">new</span> <span class="tk-t">ModelRouter</span>({
   catalog: createStaticCapabilityCatalog(exampleCatalog),
-  providers: ["google", "anthropic", "openai", "mistral", "local"].map((providerId) =&gt;
+  providers: [<span class="tk-s">"google"</span>, <span class="tk-s">"anthropic"</span>, <span class="tk-s">"openai"</span>, <span class="tk-s">"mistral"</span>, <span class="tk-s">"local"</span>].map((providerId) =&gt;
     createCallbackProviderAdapter({ providerId }),
   ),
 });
 
-const plan = await router.plan({
-  task: "contract.redline",
-  input: "(an employment contract)",
-  inputModalities: ["text"],
+<span class="tk-k">const</span> plan = <span class="tk-k">await</span> router.plan({
+  task: <span class="tk-s">"contract.redline"</span>,
+  input: <span class="tk-s">"(an employment contract)"</span>,
+  inputModalities: [<span class="tk-s">"text"</span>],
   preference: euResidencyThenCheapest,
 });
 
-// llama-3.3-70b wins on price; mistral-large is the fallback.
-// US-hosted candidates never make it into the route list.
+<span class="tk-c">// llama-3.3-70b wins on price; mistral-large is the fallback.</span>
+<span class="tk-c">// US-hosted candidates never make it into the route list.</span>
 printPlan(plan);</code></pre>
     </section>
     <section class="doc" id="ex-05-outage-fallback">
       <h2><span class="no">05</span> Outage fallback</h2>
       <p class="lead">When the selected provider fails, execution moves down the ranked route list automatically. The result includes the full attempt history.</p>
       <p><code>bun packages/model-router/examples/05-outage-fallback.ts</code> &middot; <a class="inline" href="https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/05-outage-fallback.ts">View source &#8599;</a></p>
-      <pre><code>// When the selected provider fails, execution moves down the ranked route
-// list automatically. The result includes the full attempt history.
-// Run from the repo root: bun packages/model-router/examples/05-outage-fallback.ts
-import {
+      <pre><code><span class="tk-c">// When the selected provider fails, execution moves down the ranked route</span>
+<span class="tk-c">// list automatically. The result includes the full attempt history.</span>
+<span class="tk-c">// Run from the repo root: bun packages/model-router/examples/05-outage-fallback.ts</span>
+<span class="tk-k">import</span> {
   createCallbackProviderAdapter,
   createStaticCapabilityCatalog,
-  ModelRouter,
-} from "@swoosh-dev/router";
-import { exampleCatalog } from "./shared/catalog";
-import { printAttempts, printPlan } from "./shared/print";
+  <span class="tk-t">ModelRouter</span>,
+} <span class="tk-k">from</span> <span class="tk-s">"@swoosh-dev/router"</span>;
+<span class="tk-k">import</span> { exampleCatalog } <span class="tk-k">from</span> <span class="tk-s">"./shared/catalog"</span>;
+<span class="tk-k">import</span> { printAttempts, printPlan } <span class="tk-k">from</span> <span class="tk-s">"./shared/print"</span>;
 
-const router = new ModelRouter({
+<span class="tk-k">const</span> router = <span class="tk-k">new</span> <span class="tk-t">ModelRouter</span>({
   catalog: createStaticCapabilityCatalog(exampleCatalog),
   providers: [
     createCallbackProviderAdapter({
-      providerId: "google",
+      providerId: <span class="tk-s">"google"</span>,
       generateObject: () =&gt; {
-        throw new Error("503 service unavailable");
+        <span class="tk-k">throw</span> <span class="tk-k">new</span> <span class="tk-t">Error</span>(<span class="tk-s">"503 service unavailable"</span>);
       },
     }),
     createCallbackProviderAdapter({
-      providerId: "anthropic",
+      providerId: <span class="tk-s">"anthropic"</span>,
       generateObject: () =&gt; {
-        throw new Error("429 rate limited");
+        <span class="tk-k">throw</span> <span class="tk-k">new</span> <span class="tk-t">Error</span>(<span class="tk-s">"429 rate limited"</span>);
       },
     }),
     createCallbackProviderAdapter({
-      providerId: "openai",
-      generateObject: () =&gt; ({ summary: "Q3 revenue grew 14% quarter over quarter." }),
+      providerId: <span class="tk-s">"openai"</span>,
+      generateObject: () =&gt; ({ summary: <span class="tk-s">"Q3 revenue grew 14% quarter over quarter."</span> }),
     }),
   ],
 });
 
-const result = await router.run&lt;string, { summary: string }&gt;({
-  task: "earnings.summarize",
-  input: "(earnings call transcript)",
-  prompt: "Summarize the key results in one sentence.",
-  inputModalities: ["text"],
-  requiresFeatures: ["structured_output"],
-  preference: "cheapest",
+<span class="tk-k">const</span> result = <span class="tk-k">await</span> router.run&lt;string, { summary: string }&gt;({
+  task: <span class="tk-s">"earnings.summarize"</span>,
+  input: <span class="tk-s">"(earnings call transcript)"</span>,
+  prompt: <span class="tk-s">"Summarize the key results in one sentence."</span>,
+  inputModalities: [<span class="tk-s">"text"</span>],
+  requiresFeatures: [<span class="tk-s">"structured_output"</span>],
+  preference: <span class="tk-s">"cheapest"</span>,
 });
 
 printPlan(result.plan);
 printAttempts(result.attempts);
-console.log("output     ", result.output);</code></pre>
+console.log(<span class="tk-s">"output     "</span>, result.output);</code></pre>
     </section>
     <section class="doc" id="ex-06-bring-your-own-catalog">
       <h2><span class="no">06</span> Bring your own catalog</h2>
       <p class="lead">Opt out of models.dev: source the catalog from your own database (or any async loader) while still producing the canonical ModelCapability shape.</p>
       <p><code>bun packages/model-router/examples/06-bring-your-own-catalog.ts</code> &middot; <a class="inline" href="https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/06-bring-your-own-catalog.ts">View source &#8599;</a></p>
-      <pre><code>// Opt out of models.dev: source the catalog from your own database (or any
-// async loader) while still producing the canonical ModelCapability shape.
-// Run from the repo root: bun packages/model-router/examples/06-bring-your-own-catalog.ts
-import {
+      <pre><code><span class="tk-c">// Opt out of models.dev: source the catalog from your own database (or any</span>
+<span class="tk-c">// async loader) while still producing the canonical ModelCapability shape.</span>
+<span class="tk-c">// Run from the repo root: bun packages/model-router/examples/06-bring-your-own-catalog.ts</span>
+<span class="tk-k">import</span> {
   createCallbackProviderAdapter,
   createCapabilityCatalog,
-  type ModelCapability,
-  ModelRouter,
-} from "@swoosh-dev/router";
-import { printPlan } from "./shared/print";
+  <span class="tk-k">type</span> <span class="tk-t">ModelCapability</span>,
+  <span class="tk-t">ModelRouter</span>,
+} <span class="tk-k">from</span> <span class="tk-s">"@swoosh-dev/router"</span>;
+<span class="tk-k">import</span> { printPlan } <span class="tk-k">from</span> <span class="tk-s">"./shared/print"</span>;
 
-// Pretend this is a table in your database. The "columns" are exactly the
-// ModelCapability fields — your row maps straight onto the interface.
-interface ModelRow {
+<span class="tk-c">// Pretend this is a table in your database. The "columns" are exactly the</span>
+<span class="tk-c">// ModelCapability fields — your row maps straight onto the interface.</span>
+<span class="tk-k">interface</span> <span class="tk-t">ModelRow</span> {
   provider: string;
   model: string;
   vision: boolean;
@@ -453,341 +453,341 @@ interface ModelRow {
   outUsdPerM: number;
 }
 
-const rows: ModelRow[] = [
-  { provider: "internal", model: "house-small", vision: false, ctx: 32_000, inUsdPerM: 0, outUsdPerM: 0 },
-  { provider: "internal", model: "house-large", vision: true, ctx: 200_000, inUsdPerM: 0.5, outUsdPerM: 1.5 },
+<span class="tk-k">const</span> rows: <span class="tk-t">ModelRow</span>[] = [
+  { provider: <span class="tk-s">"internal"</span>, model: <span class="tk-s">"house-small"</span>, vision: <span class="tk-k">false</span>, ctx: <span class="tk-n">32_000</span>, inUsdPerM: <span class="tk-n">0</span>, outUsdPerM: <span class="tk-n">0</span> },
+  { provider: <span class="tk-s">"internal"</span>, model: <span class="tk-s">"house-large"</span>, vision: <span class="tk-k">true</span>, ctx: <span class="tk-n">200_000</span>, inUsdPerM: <span class="tk-n">0.5</span>, outUsdPerM: <span class="tk-n">1.5</span> },
 ];
 
-const rowToCapability = (row: ModelRow): ModelCapability =&gt; ({
+<span class="tk-k">const</span> rowToCapability = (row: <span class="tk-t">ModelRow</span>): <span class="tk-t">ModelCapability</span> =&gt; ({
   providerId: row.provider,
-  providerName: "Internal",
+  providerName: <span class="tk-s">"Internal"</span>,
   modelId: row.model,
   modelName: row.model,
-  inputModalities: row.vision ? ["text", "image"] : ["text"],
-  outputModalities: ["text"],
+  inputModalities: row.vision ? [<span class="tk-s">"text"</span>, <span class="tk-s">"image"</span>] : [<span class="tk-s">"text"</span>],
+  outputModalities: [<span class="tk-s">"text"</span>],
   features: row.vision
-    ? ["structured_output", "tools", "attachments"]
-    : ["structured_output", "tools"],
+    ? [<span class="tk-s">"structured_output"</span>, <span class="tk-s">"tools"</span>, <span class="tk-s">"attachments"</span>]
+    : [<span class="tk-s">"structured_output"</span>, <span class="tk-s">"tools"</span>],
   limits: { contextTokens: row.ctx },
   pricing: { inputPerMillionTokens: row.inUsdPerM, outputPerMillionTokens: row.outUsdPerM },
-  latencyClass: "fast",
+  latencyClass: <span class="tk-s">"fast"</span>,
 });
 
-const router = new ModelRouter({
-  // No models.dev — load and map your own rows. Could be a DB query, an API, a file.
-  catalog: createCapabilityCatalog(async () =&gt; {
-    const fetched = await Promise.resolve(rows); // e.g. await db.select().from(models)
-    return fetched.map(rowToCapability);
+<span class="tk-k">const</span> router = <span class="tk-k">new</span> <span class="tk-t">ModelRouter</span>({
+  <span class="tk-c">// No models.dev — load and map your own rows. Could be a DB query, an API, a file.</span>
+  catalog: createCapabilityCatalog(<span class="tk-k">async</span> () =&gt; {
+    <span class="tk-k">const</span> fetched = <span class="tk-k">await</span> <span class="tk-t">Promise</span>.resolve(rows); <span class="tk-c">// e.g. await db.select().from(models)</span>
+    <span class="tk-k">return</span> fetched.map(rowToCapability);
   }),
-  providers: ["internal"].map((providerId) =&gt; createCallbackProviderAdapter({ providerId })),
+  providers: [<span class="tk-s">"internal"</span>].map((providerId) =&gt; createCallbackProviderAdapter({ providerId })),
 });
 
-const plan = await router.plan({
-  task: "doc.summarize",
-  input: "(an internal document)",
-  inputModalities: ["text"],
-  preference: "cheapest",
+<span class="tk-k">const</span> plan = <span class="tk-k">await</span> router.plan({
+  task: <span class="tk-s">"doc.summarize"</span>,
+  input: <span class="tk-s">"(an internal document)"</span>,
+  inputModalities: [<span class="tk-s">"text"</span>],
+  preference: <span class="tk-s">"cheapest"</span>,
 });
 
-// Routes purely against your own catalog — house-small wins on price.
+<span class="tk-c">// Routes purely against your own catalog — house-small wins on price.</span>
 printPlan(plan);</code></pre>
     </section>
     <section class="doc" id="ex-07-model-access">
       <h2><span class="no">07</span> Model access</h2>
       <p class="lead">Tell the router which models you actually have access to — declared once, not per request. A broad catalog (here the fixture; in production, models.dev) supplies the configs; you intersect it down to your accessible set.</p>
       <p><code>bun packages/model-router/examples/07-model-access.ts</code> &middot; <a class="inline" href="https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/07-model-access.ts">View source &#8599;</a></p>
-      <pre><code>// Tell the router which models you actually have access to — declared once,
-// not per request. A broad catalog (here the fixture; in production, models.dev)
-// supplies the configs; you intersect it down to your accessible set.
-// Run from the repo root: bun packages/model-router/examples/07-model-access.ts
-import {
+      <pre><code><span class="tk-c">// Tell the router which models you actually have access to — declared once,</span>
+<span class="tk-c">// not per request. A broad catalog (here the fixture; in production, models.dev)</span>
+<span class="tk-c">// supplies the configs; you intersect it down to your accessible set.</span>
+<span class="tk-c">// Run from the repo root: bun packages/model-router/examples/07-model-access.ts</span>
+<span class="tk-k">import</span> {
   createCallbackProviderAdapter,
   createStaticCapabilityCatalog,
   filterCapabilityCatalog,
   hasApiKey,
-  ModelRouter,
-} from "@swoosh-dev/router";
-import { exampleCatalog } from "./shared/catalog";
-import { printPlan } from "./shared/print";
+  <span class="tk-t">ModelRouter</span>,
+} <span class="tk-k">from</span> <span class="tk-s">"@swoosh-dev/router"</span>;
+<span class="tk-k">import</span> { exampleCatalog } <span class="tk-k">from</span> <span class="tk-s">"./shared/catalog"</span>;
+<span class="tk-k">import</span> { printPlan } <span class="tk-k">from</span> <span class="tk-s">"./shared/print"</span>;
 
-// The full catalog lists models across google, anthropic, openai, mistral, local.
-const universe = createStaticCapabilityCatalog(exampleCatalog);
+<span class="tk-c">// The full catalog lists models across google, anthropic, openai, mistral, local.</span>
+<span class="tk-k">const</span> universe = createStaticCapabilityCatalog(exampleCatalog);
 
-// Option A — allowlist the exact models your account/contract permits.
-// Configs (pricing, limits, features) still come from the catalog; you only name ids.
-const accessible = filterCapabilityCatalog(universe, [
-  "google/gemini-2.5-flash",
-  "anthropic/claude-haiku-4-5",
-  "openai/gpt-4o",
+<span class="tk-c">// Option A — allowlist the exact models your account/contract permits.</span>
+<span class="tk-c">// Configs (pricing, limits, features) still come from the catalog; you only name ids.</span>
+<span class="tk-k">const</span> accessible = filterCapabilityCatalog(universe, [
+  <span class="tk-s">"google/gemini-2.5-flash"</span>,
+  <span class="tk-s">"anthropic/claude-haiku-4-5"</span>,
+  <span class="tk-s">"openai/gpt-4o"</span>,
 ]);
 
-// Option B — gate whole providers by whether their API key is present.
-// hasApiKey looks up the conventional env var(s) per provider (GEMINI_API_KEY,
-// OPENAI_API_KEY, …). It reads process.env by default; here we inject a fake
-// env so the example is deterministic offline.
-const env = { GEMINI_API_KEY: "demo", OPENAI_API_KEY: "demo" }; // no ANTHROPIC_API_KEY
-const providers = ["google", "anthropic", "openai", "mistral", "local"].map((providerId) =&gt;
+<span class="tk-c">// Option B — gate whole providers by whether their API key is present.</span>
+<span class="tk-c">// hasApiKey looks up the conventional env var(s) per provider (GEMINI_API_KEY,</span>
+<span class="tk-c">// OPENAI_API_KEY, …). It reads process.env by default; here we inject a fake</span>
+<span class="tk-c">// env so the example is deterministic offline.</span>
+<span class="tk-k">const</span> env = { <span class="tk-t">GEMINI_API_KEY</span>: <span class="tk-s">"demo"</span>, <span class="tk-t">OPENAI_API_KEY</span>: <span class="tk-s">"demo"</span> }; <span class="tk-c">// no ANTHROPIC_API_KEY</span>
+<span class="tk-k">const</span> providers = [<span class="tk-s">"google"</span>, <span class="tk-s">"anthropic"</span>, <span class="tk-s">"openai"</span>, <span class="tk-s">"mistral"</span>, <span class="tk-s">"local"</span>].map((providerId) =&gt;
   createCallbackProviderAdapter({ providerId, isAvailable: () =&gt; hasApiKey(providerId, { env }) }),
 );
 
-const router = new ModelRouter({ catalog: accessible, providers });
+<span class="tk-k">const</span> router = <span class="tk-k">new</span> <span class="tk-t">ModelRouter</span>({ catalog: accessible, providers });
 
-const plan = await router.plan({
-  task: "doc.classify",
-  input: "(a document)",
-  inputModalities: ["text"],
-  requiresFeatures: ["structured_output"],
-  preference: "cheapest",
+<span class="tk-k">const</span> plan = <span class="tk-k">await</span> router.plan({
+  task: <span class="tk-s">"doc.classify"</span>,
+  input: <span class="tk-s">"(a document)"</span>,
+  inputModalities: [<span class="tk-s">"text"</span>],
+  requiresFeatures: [<span class="tk-s">"structured_output"</span>],
+  preference: <span class="tk-s">"cheapest"</span>,
 });
 
-// Only the three allowlisted models are even considered; claude-haiku is then
-// rejected because its key is missing — leaving gemini (selected) and gpt-4o.
+<span class="tk-c">// Only the three allowlisted models are even considered; claude-haiku is then</span>
+<span class="tk-c">// rejected because its key is missing — leaving gemini (selected) and gpt-4o.</span>
 printPlan(plan);</code></pre>
     </section>
     <section class="doc" id="ex-08-web-search">
       <h2><span class="no">08</span> Web search</h2>
       <p class="lead">Generate a quiz about current events — which needs a model that can search the web. Requiring the "web_search" feature filters the catalog to models whose API does live search; the adapter turns it on per provider.</p>
       <p><code>bun packages/model-router/examples/08-web-search.ts</code> &middot; <a class="inline" href="https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/08-web-search.ts">View source &#8599;</a></p>
-      <pre><code>// Generate a quiz about current events — which needs a model that can search
-// the web. Requiring the "web_search" feature filters the catalog to models
-// whose API does live search; the adapter turns it on per provider.
-// Run from the repo root: bun packages/model-router/examples/08-web-search.ts
-import {
+      <pre><code><span class="tk-c">// Generate a quiz about current events — which needs a model that can search</span>
+<span class="tk-c">// the web. Requiring the "web_search" feature filters the catalog to models</span>
+<span class="tk-c">// whose API does live search; the adapter turns it on per provider.</span>
+<span class="tk-c">// Run from the repo root: bun packages/model-router/examples/08-web-search.ts</span>
+<span class="tk-k">import</span> {
   createCallbackProviderAdapter,
   createStaticCapabilityCatalog,
-  ModelRouter,
-} from "@swoosh-dev/router";
-import { exampleCatalog } from "./shared/catalog";
-import { printPlan } from "./shared/print";
+  <span class="tk-t">ModelRouter</span>,
+} <span class="tk-k">from</span> <span class="tk-s">"@swoosh-dev/router"</span>;
+<span class="tk-k">import</span> { exampleCatalog } <span class="tk-k">from</span> <span class="tk-s">"./shared/catalog"</span>;
+<span class="tk-k">import</span> { printPlan } <span class="tk-k">from</span> <span class="tk-s">"./shared/print"</span>;
 
-interface Quiz {
+<span class="tk-k">interface</span> <span class="tk-t">Quiz</span> {
   questions: { prompt: string; answer: string }[];
 }
 
-// In the fixture, google/gemini-2.5-flash and openai/gpt-4o are tagged with
-// "web_search"; the others are not. The adapter is where you actually enable
-// the provider's search tool (e.g. OpenAI's web_search tool, Gemini grounding).
-const providers = ["google", "anthropic", "openai", "mistral", "local"].map((providerId) =&gt;
+<span class="tk-c">// In the fixture, google/gemini-2.5-flash and openai/gpt-4o are tagged with</span>
+<span class="tk-c">// "web_search"; the others are not. The adapter is where you actually enable</span>
+<span class="tk-c">// the provider's search tool (e.g. OpenAI's web_search tool, Gemini grounding).</span>
+<span class="tk-k">const</span> providers = [<span class="tk-s">"google"</span>, <span class="tk-s">"anthropic"</span>, <span class="tk-s">"openai"</span>, <span class="tk-s">"mistral"</span>, <span class="tk-s">"local"</span>].map((providerId) =&gt;
   createCallbackProviderAdapter({
     providerId,
     generateObject: () =&gt;
       ({
         questions: [
-          { prompt: "Which team won the most recent Formula 1 race?", answer: "(from live search)" },
+          { prompt: <span class="tk-s">"Which team won the most recent Formula 1 race?"</span>, answer: <span class="tk-s">"(from live search)"</span> },
         ],
-      }) satisfies Quiz,
+      }) <span class="tk-k">satisfies</span> <span class="tk-t">Quiz</span>,
   }),
 );
 
-const router = new ModelRouter({
+<span class="tk-k">const</span> router = <span class="tk-k">new</span> <span class="tk-t">ModelRouter</span>({
   catalog: createStaticCapabilityCatalog(exampleCatalog),
   providers,
 });
 
-const result = await router.run&lt;string, Quiz&gt;({
-  task: "quiz.generate",
-  input: "Write 5 quiz questions about this week's sports headlines.",
-  prompt: "Write 5 quiz questions about this week's sports headlines, with answers.",
-  inputModalities: ["text"],
-  requiresFeatures: ["structured_output", "web_search"],
-  preference: "cheapest",
+<span class="tk-k">const</span> result = <span class="tk-k">await</span> router.run&lt;string, <span class="tk-t">Quiz</span>&gt;({
+  task: <span class="tk-s">"quiz.generate"</span>,
+  input: <span class="tk-s">"Write 5 quiz questions about this week's sports headlines."</span>,
+  prompt: <span class="tk-s">"Write 5 quiz questions about this week's sports headlines, with answers."</span>,
+  inputModalities: [<span class="tk-s">"text"</span>],
+  requiresFeatures: [<span class="tk-s">"structured_output"</span>, <span class="tk-s">"web_search"</span>],
+  preference: <span class="tk-s">"cheapest"</span>,
 });
 
-// Only gemini-2.5-flash and gpt-4o survive the web_search requirement;
-// claude, mistral, and llama are rejected for lacking it.
+<span class="tk-c">// Only gemini-2.5-flash and gpt-4o survive the web_search requirement;</span>
+<span class="tk-c">// claude, mistral, and llama are rejected for lacking it.</span>
 printPlan(result.plan);
-console.log("output     ", JSON.stringify(result.output));</code></pre>
+console.log(<span class="tk-s">"output     "</span>, <span class="tk-t">JSON</span>.stringify(result.output));</code></pre>
     </section>
     <section class="doc" id="ex-09-load-balancing">
       <h2><span class="no">09</span> Load balancing</h2>
       <p class="lead">LiteLLM-style rotation, two ways:   • loadBalance — spread requests across the N cheapest providers, not just #1.   • roundRobin  — rotate API keys within one provider to spread rate limits.</p>
       <p><code>bun packages/model-router/examples/09-load-balancing.ts</code> &middot; <a class="inline" href="https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/09-load-balancing.ts">View source &#8599;</a></p>
-      <pre><code>// LiteLLM-style rotation, two ways:
-//   • loadBalance — spread requests across the N cheapest providers, not just #1.
-//   • roundRobin  — rotate API keys within one provider to spread rate limits.
-// Run from the repo root: bun packages/model-router/examples/09-load-balancing.ts
-import {
+      <pre><code><span class="tk-c">// LiteLLM-style rotation, two ways:</span>
+<span class="tk-c">//   • loadBalance — spread requests across the N cheapest providers, not just #1.</span>
+<span class="tk-c">//   • roundRobin  — rotate API keys within one provider to spread rate limits.</span>
+<span class="tk-c">// Run from the repo root: bun packages/model-router/examples/09-load-balancing.ts</span>
+<span class="tk-k">import</span> {
   createCallbackProviderAdapter,
   createStaticCapabilityCatalog,
   loadBalance,
-  ModelRouter,
+  <span class="tk-t">ModelRouter</span>,
   roundRobin,
-} from "@swoosh-dev/router";
+} <span class="tk-k">from</span> <span class="tk-s">"@swoosh-dev/router"</span>;
 
-// Three image-generation models; replicate and openai are the two cheapest.
-const imageCatalog = createStaticCapabilityCatalog([
+<span class="tk-c">// Three image-generation models; replicate and openai are the two cheapest.</span>
+<span class="tk-k">const</span> imageCatalog = createStaticCapabilityCatalog([
   {
-    providerId: "replicate", providerName: "Replicate", modelId: "flux-schnell", modelName: "FLUX schnell",
-    inputModalities: ["text"], outputModalities: ["image"], features: [],
-    limits: {}, pricing: { outputPerMillionTokens: 3 }, latencyClass: "fast",
+    providerId: <span class="tk-s">"replicate"</span>, providerName: <span class="tk-s">"Replicate"</span>, modelId: <span class="tk-s">"flux-schnell"</span>, modelName: <span class="tk-s">"FLUX schnell"</span>,
+    inputModalities: [<span class="tk-s">"text"</span>], outputModalities: [<span class="tk-s">"image"</span>], features: [],
+    limits: {}, pricing: { outputPerMillionTokens: <span class="tk-n">3</span> }, latencyClass: <span class="tk-s">"fast"</span>,
   },
   {
-    providerId: "openai", providerName: "OpenAI", modelId: "gpt-image-1", modelName: "GPT Image 1",
-    inputModalities: ["text"], outputModalities: ["image"], features: [],
-    limits: {}, pricing: { outputPerMillionTokens: 4 }, latencyClass: "standard",
+    providerId: <span class="tk-s">"openai"</span>, providerName: <span class="tk-s">"OpenAI"</span>, modelId: <span class="tk-s">"gpt-image-1"</span>, modelName: <span class="tk-s">"GPT Image 1"</span>,
+    inputModalities: [<span class="tk-s">"text"</span>], outputModalities: [<span class="tk-s">"image"</span>], features: [],
+    limits: {}, pricing: { outputPerMillionTokens: <span class="tk-n">4</span> }, latencyClass: <span class="tk-s">"standard"</span>,
   },
   {
-    providerId: "google", providerName: "Google", modelId: "imagen-4", modelName: "Imagen 4",
-    inputModalities: ["text"], outputModalities: ["image"], features: [],
-    limits: {}, pricing: { outputPerMillionTokens: 12 }, latencyClass: "standard",
+    providerId: <span class="tk-s">"google"</span>, providerName: <span class="tk-s">"Google"</span>, modelId: <span class="tk-s">"imagen-4"</span>, modelName: <span class="tk-s">"Imagen 4"</span>,
+    inputModalities: [<span class="tk-s">"text"</span>], outputModalities: [<span class="tk-s">"image"</span>], features: [],
+    limits: {}, pricing: { outputPerMillionTokens: <span class="tk-n">12</span> }, latencyClass: <span class="tk-s">"standard"</span>,
   },
 ]);
 
-// openai rotates between two keys; we log which one each call used.
-const nextOpenAiKey = roundRobin(["openai-key-A", "openai-key-B"]);
+<span class="tk-c">// openai rotates between two keys; we log which one each call used.</span>
+<span class="tk-k">const</span> nextOpenAiKey = roundRobin([<span class="tk-s">"openai-key-A"</span>, <span class="tk-s">"openai-key-B"</span>]);
 
-const router = new ModelRouter({
+<span class="tk-k">const</span> router = <span class="tk-k">new</span> <span class="tk-t">ModelRouter</span>({
   catalog: imageCatalog,
-  providers: ["replicate", "openai", "google"].map((providerId) =&gt;
+  providers: [<span class="tk-s">"replicate"</span>, <span class="tk-s">"openai"</span>, <span class="tk-s">"google"</span>].map((providerId) =&gt;
     createCallbackProviderAdapter({
       providerId,
       generateObject: () =&gt; {
-        const key = providerId === "openai" ? ` (key ${nextOpenAiKey()})` : "";
-        return { url: `https://cdn.example/${providerId}.png`, via: providerId + key };
+        <span class="tk-k">const</span> key = providerId === <span class="tk-s">"openai"</span> ? <span class="tk-s">` (key ${nextOpenAiKey()})`</span> : <span class="tk-s">""</span>;
+        <span class="tk-k">return</span> { url: <span class="tk-s">`https://cdn.example/${providerId}.png`</span>, via: providerId + key };
       },
     }),
   ),
 });
 
-// Cheapest image gen — but cycle through the two cheapest providers.
-const balanced = loadBalance("cheapest", { across: 2 });
+<span class="tk-c">// Cheapest image gen — but cycle through the two cheapest providers.</span>
+<span class="tk-k">const</span> balanced = loadBalance(<span class="tk-s">"cheapest"</span>, { across: <span class="tk-n">2</span> });
 
-for (let i = 1; i &lt;= 4; i++) {
-  const result = await router.run&lt;string, { url: string; via: string }&gt;({
-    task: "image.generate",
-    input: "a watercolor fox",
-    prompt: "a watercolor fox",
-    inputModalities: ["text"],
-    outputModalities: ["image"],
+<span class="tk-k">for</span> (<span class="tk-k">let</span> i = <span class="tk-n">1</span>; i &lt;= <span class="tk-n">4</span>; i++) {
+  <span class="tk-k">const</span> result = <span class="tk-k">await</span> router.run&lt;string, { url: string; via: string }&gt;({
+    task: <span class="tk-s">"image.generate"</span>,
+    input: <span class="tk-s">"a watercolor fox"</span>,
+    prompt: <span class="tk-s">"a watercolor fox"</span>,
+    inputModalities: [<span class="tk-s">"text"</span>],
+    outputModalities: [<span class="tk-s">"image"</span>],
     preference: balanced,
   });
-  console.log(`request ${i} → ${result.output.via}`);
+  console.log(<span class="tk-s">`request ${i} → ${result.output.via}`</span>);
 }
-// → replicate, openai (key A), replicate, openai (key B): providers alternate,
-//   and openai's two keys rotate across the calls that land on it.</code></pre>
+<span class="tk-c">// → replicate, openai (key A), replicate, openai (key B): providers alternate,</span>
+<span class="tk-c">//   and openai's two keys rotate across the calls that land on it.</span></code></pre>
     </section>
     <section class="doc" id="ex-10-benchmark-routing">
       <h2><span class="no">10</span> Benchmark routing</h2>
       <p class="lead">Route by benchmark performance, not just price. byBenchmark ranks on a named benchmark — or a function that blends several, so you decide what "best" means.</p>
       <p><code>bun packages/model-router/examples/10-benchmark-routing.ts</code> &middot; <a class="inline" href="https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/10-benchmark-routing.ts">View source &#8599;</a></p>
-      <pre><code>// Route by benchmark performance, not just price. byBenchmark ranks on a named
-// benchmark — or a function that blends several, so you decide what "best" means.
-// Run from the repo root: bun packages/model-router/examples/10-benchmark-routing.ts
-import {
+      <pre><code><span class="tk-c">// Route by benchmark performance, not just price. byBenchmark ranks on a named</span>
+<span class="tk-c">// benchmark — or a function that blends several, so you decide what "best" means.</span>
+<span class="tk-c">// Run from the repo root: bun packages/model-router/examples/10-benchmark-routing.ts</span>
+<span class="tk-k">import</span> {
   byBenchmark,
   createCallbackProviderAdapter,
   createStaticCapabilityCatalog,
-  type ModelCapability,
-  ModelRouter,
-} from "@swoosh-dev/router";
-import { printPlan } from "./shared/print";
+  <span class="tk-k">type</span> <span class="tk-t">ModelCapability</span>,
+  <span class="tk-t">ModelRouter</span>,
+} <span class="tk-k">from</span> <span class="tk-s">"@swoosh-dev/router"</span>;
+<span class="tk-k">import</span> { printPlan } <span class="tk-k">from</span> <span class="tk-s">"./shared/print"</span>;
 
-const model = (
+<span class="tk-k">const</span> model = (
   providerId: string,
   modelId: string,
-  benchmarks: Record&lt;string, number&gt;,
-): ModelCapability =&gt; ({
+  benchmarks: <span class="tk-t">Record</span>&lt;string, number&gt;,
+): <span class="tk-t">ModelCapability</span> =&gt; ({
   providerId, providerName: providerId, modelId, modelName: modelId,
-  inputModalities: ["text"], outputModalities: ["text"],
-  features: ["structured_output"], limits: { contextTokens: 200_000 },
-  pricing: { inputPerMillionTokens: 1, outputPerMillionTokens: 3 }, latencyClass: "standard",
+  inputModalities: [<span class="tk-s">"text"</span>], outputModalities: [<span class="tk-s">"text"</span>],
+  features: [<span class="tk-s">"structured_output"</span>], limits: { contextTokens: <span class="tk-n">200_000</span> },
+  pricing: { inputPerMillionTokens: <span class="tk-n">1</span>, outputPerMillionTokens: <span class="tk-n">3</span> }, latencyClass: <span class="tk-s">"standard"</span>,
   benchmarks,
 });
 
-const catalog = createStaticCapabilityCatalog([
-  model("openai", "gpt-5", { swe_bench: 0.72, gpqa: 0.85 }),
-  model("anthropic", "claude-opus", { swe_bench: 0.78, gpqa: 0.84 }),
-  model("google", "gemini-pro", { swe_bench: 0.64, gpqa: 0.84 }),
+<span class="tk-k">const</span> catalog = createStaticCapabilityCatalog([
+  model(<span class="tk-s">"openai"</span>, <span class="tk-s">"gpt-5"</span>, { swe_bench: <span class="tk-n">0.72</span>, gpqa: <span class="tk-n">0.85</span> }),
+  model(<span class="tk-s">"anthropic"</span>, <span class="tk-s">"claude-opus"</span>, { swe_bench: <span class="tk-n">0.78</span>, gpqa: <span class="tk-n">0.84</span> }),
+  model(<span class="tk-s">"google"</span>, <span class="tk-s">"gemini-pro"</span>, { swe_bench: <span class="tk-n">0.64</span>, gpqa: <span class="tk-n">0.84</span> }),
 ]);
 
-const router = new ModelRouter({
+<span class="tk-k">const</span> router = <span class="tk-k">new</span> <span class="tk-t">ModelRouter</span>({
   catalog,
-  providers: ["openai", "anthropic", "google"].map((p) =&gt; createCallbackProviderAdapter({ providerId: p })),
+  providers: [<span class="tk-s">"openai"</span>, <span class="tk-s">"anthropic"</span>, <span class="tk-s">"google"</span>].map((p) =&gt; createCallbackProviderAdapter({ providerId: p })),
 });
 
-const base = {
-  task: "code.fix",
-  input: "patch this failing test",
-  inputModalities: ["text"] as const,
-  requiresFeatures: ["structured_output"] as const,
+<span class="tk-k">const</span> base = {
+  task: <span class="tk-s">"code.fix"</span>,
+  input: <span class="tk-s">"patch this failing test"</span>,
+  inputModalities: [<span class="tk-s">"text"</span>] <span class="tk-k">as</span> <span class="tk-k">const</span>,
+  requiresFeatures: [<span class="tk-s">"structured_output"</span>] <span class="tk-k">as</span> <span class="tk-k">const</span>,
 };
 
-// 1) Single benchmark: best at SWE-bench → claude-opus.
-const sweBest = await router.plan({ ...base, preference: byBenchmark("swe_bench") });
-console.log("best @ swe_bench:");
+<span class="tk-c">// 1) Single benchmark: best at SWE-bench → claude-opus.</span>
+<span class="tk-k">const</span> sweBest = <span class="tk-k">await</span> router.plan({ ...base, preference: byBenchmark(<span class="tk-s">"swe_bench"</span>) });
+console.log(<span class="tk-s">"best @ swe_bench:"</span>);
 printPlan(sweBest);
 
-// 2) Composite: weight coding 70% / reasoning 30% → your own definition of "best".
-const blended = byBenchmark((c) =&gt; 0.7 * (c.benchmarks?.swe_bench ?? 0) + 0.3 * (c.benchmarks?.gpqa ?? 0));
-const blendedPlan = await router.plan({ ...base, preference: blended });
-console.log("\nbest @ 0.7·swe_bench + 0.3·gpqa:");
+<span class="tk-c">// 2) Composite: weight coding 70% / reasoning 30% → your own definition of "best".</span>
+<span class="tk-k">const</span> blended = byBenchmark((c) =&gt; <span class="tk-n">0.7</span> * (c.benchmarks?.swe_bench ?? <span class="tk-n">0</span>) + <span class="tk-n">0.3</span> * (c.benchmarks?.gpqa ?? <span class="tk-n">0</span>));
+<span class="tk-k">const</span> blendedPlan = <span class="tk-k">await</span> router.plan({ ...base, preference: blended });
+console.log(<span class="tk-s">"\nbest @ 0.7·swe_bench + 0.3·gpqa:"</span>);
 printPlan(blendedPlan);</code></pre>
     </section>
     <section class="doc" id="ex-11-llm-judge">
       <h2><span class="no">11</span> LLM judge</h2>
       <p class="lead">Dynamic routing: an LLM judge classifies each prompt, then the policy routes by the verdict — cheap models for chat, top models for coding, search models for research. The classifier returns structured output (the category).</p>
       <p><code>bun packages/model-router/examples/11-llm-judge.ts</code> &middot; <a class="inline" href="https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/11-llm-judge.ts">View source &#8599;</a></p>
-      <pre><code>// Dynamic routing: an LLM judge classifies each prompt, then the policy routes
-// by the verdict — cheap models for chat, top models for coding, search models
-// for research. The classifier returns structured output (the category).
-// Run from the repo root: bun packages/model-router/examples/11-llm-judge.ts
-import {
+      <pre><code><span class="tk-c">// Dynamic routing: an LLM judge classifies each prompt, then the policy routes</span>
+<span class="tk-c">// by the verdict — cheap models for chat, top models for coding, search models</span>
+<span class="tk-c">// for research. The classifier returns structured output (the category).</span>
+<span class="tk-c">// Run from the repo root: bun packages/model-router/examples/11-llm-judge.ts</span>
+<span class="tk-k">import</span> {
   byBenchmark,
   createCallbackProviderAdapter,
   createStaticCapabilityCatalog,
-  type ModelCapability,
-  ModelRouter,
-} from "@swoosh-dev/router";
-import { llmJudgePolicy } from "@swoosh-dev/judge";
-import { printPlan } from "./shared/print";
+  <span class="tk-k">type</span> <span class="tk-t">ModelCapability</span>,
+  <span class="tk-t">ModelRouter</span>,
+} <span class="tk-k">from</span> <span class="tk-s">"@swoosh-dev/router"</span>;
+<span class="tk-k">import</span> { llmJudgePolicy } <span class="tk-k">from</span> <span class="tk-s">"@swoosh-dev/judge"</span>;
+<span class="tk-k">import</span> { printPlan } <span class="tk-k">from</span> <span class="tk-s">"./shared/print"</span>;
 
-const model = (providerId: string, modelId: string, extra: Partial&lt;ModelCapability&gt;): ModelCapability =&gt; ({
+<span class="tk-k">const</span> model = (providerId: string, modelId: string, extra: <span class="tk-t">Partial</span>&lt;<span class="tk-t">ModelCapability</span>&gt;): <span class="tk-t">ModelCapability</span> =&gt; ({
   providerId, providerName: providerId, modelId, modelName: modelId,
-  inputModalities: ["text"], outputModalities: ["text"], features: ["structured_output"],
-  limits: { contextTokens: 200_000 }, pricing: { inputPerMillionTokens: 1, outputPerMillionTokens: 3 },
-  latencyClass: "standard", ...extra,
+  inputModalities: [<span class="tk-s">"text"</span>], outputModalities: [<span class="tk-s">"text"</span>], features: [<span class="tk-s">"structured_output"</span>],
+  limits: { contextTokens: <span class="tk-n">200_000</span> }, pricing: { inputPerMillionTokens: <span class="tk-n">1</span>, outputPerMillionTokens: <span class="tk-n">3</span> },
+  latencyClass: <span class="tk-s">"standard"</span>, ...extra,
 });
 
-const router = new ModelRouter({
+<span class="tk-k">const</span> router = <span class="tk-k">new</span> <span class="tk-t">ModelRouter</span>({
   catalog: createStaticCapabilityCatalog([
-    model("local", "tiny", { pricing: { inputPerMillionTokens: 0, outputPerMillionTokens: 0 } }),
-    model("anthropic", "opus", { qualityScore: 10, benchmarks: { swe_bench: 0.78 } }),
-    model("perplexity", "sonar", { features: ["structured_output", "web_search"] }),
+    model(<span class="tk-s">"local"</span>, <span class="tk-s">"tiny"</span>, { pricing: { inputPerMillionTokens: <span class="tk-n">0</span>, outputPerMillionTokens: <span class="tk-n">0</span> } }),
+    model(<span class="tk-s">"anthropic"</span>, <span class="tk-s">"opus"</span>, { qualityScore: <span class="tk-n">10</span>, benchmarks: { swe_bench: <span class="tk-n">0.78</span> } }),
+    model(<span class="tk-s">"perplexity"</span>, <span class="tk-s">"sonar"</span>, { features: [<span class="tk-s">"structured_output"</span>, <span class="tk-s">"web_search"</span>] }),
   ]),
-  providers: ["local", "anthropic", "perplexity"].map((p) =&gt; createCallbackProviderAdapter({ providerId: p })),
+  providers: [<span class="tk-s">"local"</span>, <span class="tk-s">"anthropic"</span>, <span class="tk-s">"perplexity"</span>].map((p) =&gt; createCallbackProviderAdapter({ providerId: p })),
 });
 
-type Kind = "chat" | "coding" | "research";
+<span class="tk-k">type</span> <span class="tk-t">Kind</span> = <span class="tk-s">"chat"</span> | <span class="tk-s">"coding"</span> | <span class="tk-s">"research"</span>;
 
-// Stand-in for a structured-output LLM call. In production this is e.g.
-// judge.generateObject({ schema: KindSchema, prompt }) routed through swoosh itself.
-let judgeCalls = 0;
-const classify = ({ prompt }: { prompt: string }): Kind =&gt; {
+<span class="tk-c">// Stand-in for a structured-output LLM call. In production this is e.g.</span>
+<span class="tk-c">// judge.generateObject({ schema: KindSchema, prompt }) routed through swoosh itself.</span>
+<span class="tk-k">let</span> judgeCalls = <span class="tk-n">0</span>;
+<span class="tk-k">const</span> classify = ({ prompt }: { prompt: string }): <span class="tk-t">Kind</span> =&gt; {
   judgeCalls++;
-  if (/\b(code|bug|patch|function|test)\b/i.test(prompt)) return "coding";
-  if (/\b(latest|today|news|current|who won)\b/i.test(prompt)) return "research";
-  return "chat";
+  <span class="tk-k">if</span> (/\b(code|bug|patch|<span class="tk-k">function</span>|test)\b/i.test(prompt)) <span class="tk-k">return</span> <span class="tk-s">"coding"</span>;
+  <span class="tk-k">if</span> (/\b(latest|today|news|current|who won)\b/i.test(prompt)) <span class="tk-k">return</span> <span class="tk-s">"research"</span>;
+  <span class="tk-k">return</span> <span class="tk-s">"chat"</span>;
 };
 
-const smart = llmJudgePolicy&lt;Kind&gt;({
+<span class="tk-k">const</span> smart = llmJudgePolicy&lt;<span class="tk-t">Kind</span>&gt;({
   classify,
   route: {
-    chat: "cheapest",
-    coding: byBenchmark("swe_bench"),
-    research: ({ candidates }) =&gt; candidates.filter((c) =&gt; c.capability.features.includes("web_search")),
+    chat: <span class="tk-s">"cheapest"</span>,
+    coding: byBenchmark(<span class="tk-s">"swe_bench"</span>),
+    research: ({ candidates }) =&gt; candidates.filter((c) =&gt; c.capability.features.includes(<span class="tk-s">"web_search"</span>)),
   },
 });
 
-for (const prompt of [
-  "just say hi back to me",
-  "patch this failing unit test",
-  "who won the game last night?",
-  "just say hi back to me", // repeat → served from the judge cache
+<span class="tk-k">for</span> (<span class="tk-k">const</span> prompt <span class="tk-k">of</span> [
+  <span class="tk-s">"just say hi back to me"</span>,
+  <span class="tk-s">"patch this failing unit test"</span>,
+  <span class="tk-s">"who won the game last night?"</span>,
+  <span class="tk-s">"just say hi back to me"</span>, <span class="tk-c">// repeat → served from the judge cache</span>
 ]) {
-  const plan = await router.plan({ task: "assist", input: prompt, inputModalities: ["text"], preference: smart });
-  console.log(`"${prompt.slice(0, 28)}…" → ${plan.selected.capability.providerId}/${plan.selected.capability.modelId}`);
+  <span class="tk-k">const</span> plan = <span class="tk-k">await</span> router.plan({ task: <span class="tk-s">"assist"</span>, input: prompt, inputModalities: [<span class="tk-s">"text"</span>], preference: smart });
+  console.log(<span class="tk-s">`"${prompt.slice(0, 28)}…" → ${plan.selected.capability.providerId}/${plan.selected.capability.modelId}`</span>);
 }
-console.log(`\njudge invoked ${judgeCalls}× for 4 requests (1 was cached)`);</code></pre>
+console.log(<span class="tk-s">`\njudge invoked ${judgeCalls}× for 4 requests (1 was cached)`</span>);</code></pre>
     </section>
   </main>
 </div>

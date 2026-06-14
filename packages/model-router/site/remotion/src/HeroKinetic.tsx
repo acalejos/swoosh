@@ -14,7 +14,7 @@ const { fontFamily: mono } = loadMono();
 
 const C = { paper: "#f4f1ea", ink: "#16140f", dim: "#6b6658", sig: "#e8490f" };
 
-export const SCENE_LEN = 150;
+export const SCENE_LEN = 216;
 
 type Kind = "selected" | "fallback" | "rejected";
 interface M { name: string; kind: Kind; note: string; stamp?: string }
@@ -77,7 +77,8 @@ const S = {
   selected: 80,
   alsoRans: [92, 104, 116] as const,
   meta: 122,
-  fadeOut: [134, 150] as const,
+  // hold the fully-revealed plan ~2.5s (122 -> 198) before fading, so viewers can read it
+  fadeOut: [198, 216] as const,
 };
 
 const usePop = (start: number) => {

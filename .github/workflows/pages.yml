@@ -32,8 +32,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
-      # Regenerate llms.txt / llms-full.txt / api/*.md from source so the
-      # deployed docs are always in sync with the code.
+      # Typecheck first: the examples import the real packages, so this fails the
+      # deploy if any embedded example no longer compiles against the current API.
+      - run: bun run check:tsc
+      # Regenerate llms.txt / llms-full.txt / api/*.md / examples.html from source
+      # so the deployed docs are always in sync with the code.
       - run: bun run docs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

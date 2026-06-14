@@ -38,6 +38,37 @@ const slug = (name: string) => name.replace(/^@/, "").replace(/\//g, "-");
 
 const escapeHtml = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+// Minimal TS tokenizer -> the same .tk-* classes the hand-authored code blocks
+// use, so generated examples highlight identically with zero runtime deps.
+const TS_KEYWORDS = new Set([
+  "import", "export", "from", "as", "const", "let", "var", "function", "return",
+  "await", "async", "new", "class", "extends", "implements", "interface", "type",
+  "enum", "namespace", "declare", "if", "else", "for", "of", "in", "while", "do",
+  "switch", "case", "break", "continue", "default", "try", "catch", "finally",
+  "throw", "typeof", "instanceof", "keyof", "infer", "satisfies", "readonly", "is",
+  "public", "private", "protected", "static", "get", "set", "this", "super", "void",
+  "yield", "true", "false", "null", "undefined", "abstract",
+]);
+function highlightTs(src: string): string {
+  const re = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|(`(?:\\[\s\S]|[^`\\])*`|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|(\b\d[\w.]*\b)|([A-Za-z_$][\w$]*)/g;
+  let out = "";
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src))) {
+    out += escapeHtml(src.slice(last, m.index));
+    const tok = m[0];
+    if (m[1]) out += `<span class="tk-c">${escapeHtml(tok)}</span>`;
+    else if (m[2]) out += `<span class="tk-s">${escapeHtml(tok)}</span>`;
+    else if (m[3]) out += `<span class="tk-n">${escapeHtml(tok)}</span>`;
+    else if (TS_KEYWORDS.has(tok)) out += `<span class="tk-k">${escapeHtml(tok)}</span>`;
+    else if (/^[A-Z]/.test(tok)) out += `<span class="tk-t">${escapeHtml(tok)}</span>`;
+    else out += escapeHtml(tok);
+    last = re.lastIndex;
+  }
+  out += escapeHtml(src.slice(last));
+  return out;
+}
 // "01-quickstart" -> "Quickstart", "11-llm-judge" -> "LLM judge"
 const ACRONYMS: Record<string, string> = { llm: "LLM", ai: "AI", sdk: "SDK", api: "API", db: "DB" };
 const prettyTitle = (title: string) =>
@@ -257,7 +288,7 @@ ${styleBlock}
       <h2><span class="no">${exNum(e.title)}</span> ${prettyTitle(e.title)}</h2>
       <p class="lead">${escapeHtml(e.desc)}</p>
       <p><code>bun packages/model-router/examples/${e.file}</code> &middot; <a class="inline" href="${REPO}/blob/main/packages/model-router/examples/${e.file}">View source &#8599;</a></p>
-      <pre><code>${escapeHtml(e.src)}</code></pre>
+      <pre><code>${highlightTs(e.src)}</code></pre>
     </section>`,
       )
       .join("\n    ")}
