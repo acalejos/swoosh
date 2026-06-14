@@ -1,0 +1,47 @@
+name: Publish to npm
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Pack only, do not publish"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write # provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: "https://registry.npmjs.org"
+
+      - run: bun install --frozen-lockfile
+      - run: bun run check:tsc
+      - run: bun test packages
+      - run: bun run build
+
+      # Publish in dependency order so each package resolves on the registry.
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "true"
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          for pkg in model-router ai-sdk capabilities judge sdk; do
+            echo "::group::swoosh-$pkg"
+            args="--access public"
+            [ "${DRY_RUN:-false}" = "true" ] && args="$args --dry-run"
+            ( cd "packages/$pkg" && npm publish $args )
+            echo "::endgroup::"
+          done
