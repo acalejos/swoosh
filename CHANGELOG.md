@@ -3,6 +3,32 @@
 All notable changes to the swoosh packages (`@swoosh-dev/*`). The five packages
 are versioned and released in lockstep.
 
+## 0.2.0 — 2026-06-16
+
+### Added
+
+- **Unified `ModelRouter.generate(request)`.** One method for every output kind —
+  the output is inferred from the request, not the method name:
+  - `outputModalities` includes `"image"` → image generation (returns
+    `GeneratedImage`), routed to the adapter's `generateImage`
+  - a `schema` is present → schema-validated object, routed to `generateObject`
+  - otherwise → free text, routed to `generateText`
+- **First-class image generation.** `ProviderAdapter` and
+  `createCallbackProviderAdapter` (and `@swoosh-dev/ai-sdk`) gain an optional
+  `generateImage` method; new types `GeneratedImage`, `GenerateRequest`,
+  `GenerateImageRequest`, `ProviderGenerateImageRequest`. A model is only
+  eligible for a request when its catalog entry supports the requested
+  modalities/features **and** its adapter implements the matching method —
+  otherwise the router falls through to the next route.
+
+### Deprecated
+
+- `run()`, `runText()`, `generateObject()`, `generateText()` are now thin
+  aliases for `generate()` and marked `@deprecated`; they remain fully
+  functional. Migrate by calling `generate(...)` (output kind comes from the
+  request). Note: structured output is **not** a modality — it stays a property
+  of text output, signalled by the presence of a `schema`.
+
 ## 0.1.2 — 2026-06-16
 
 ### Fixed

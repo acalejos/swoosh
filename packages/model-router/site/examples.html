@@ -180,6 +180,7 @@
       <a href="#ex-09-load-balancing">09 · Load balancing</a>
       <a href="#ex-10-benchmark-routing">10 · Benchmark routing</a>
       <a href="#ex-11-llm-judge">11 · LLM judge</a>
+      <a href="#ex-12-unified-generate">12 · Unified generate</a>
     </div>
     <div class="group">
       <span>More</span>
@@ -190,7 +191,7 @@
   <main>
     <div class="doc-hero">
       <h1>Examples</h1>
-      <p>11 runnable scripts that exercise swoosh end to end. They run offline with simulated providers — no API keys — so you can read, run, and tweak them immediately. From the repo root: <code>bun packages/model-router/examples/&lt;file&gt;</code>.</p>
+      <p>12 runnable scripts that exercise swoosh end to end. They run offline with simulated providers — no API keys — so you can read, run, and tweak them immediately. From the repo root: <code>bun packages/model-router/examples/&lt;file&gt;</code>.</p>
     </div>
     <section class="doc" id="ex-01-quickstart">
       <h2><span class="no">01</span> Quickstart</h2>
@@ -788,6 +789,92 @@ printPlan(blendedPlan);</code></pre>
   console.log(<span class="tk-s">`"${prompt.slice(0, 28)}…" → ${plan.selected.capability.providerId}/${plan.selected.capability.modelId}`</span>);
 }
 console.log(<span class="tk-s">`\njudge invoked ${judgeCalls}× for 4 requests (1 was cached)`</span>);</code></pre>
+    </section>
+    <section class="doc" id="ex-12-unified-generate">
+      <h2><span class="no">12</span> Unified generate</h2>
+      <p class="lead">One method, three kinds of output — the request decides, not the method name.</p>
+      <p><code>bun packages/model-router/examples/12-unified-generate.ts</code> &middot; <a class="inline" href="https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/12-unified-generate.ts">View source &#8599;</a></p>
+      <pre><code><span class="tk-c">// One method, three kinds of output — the request decides, not the method name.</span>
+<span class="tk-c">// Run from the repo root: bun packages/model-router/examples/12-unified-generate.ts</span>
+<span class="tk-k">import</span> {
+  createCallbackProviderAdapter,
+  createStaticCapabilityCatalog,
+  <span class="tk-k">type</span> <span class="tk-t">GeneratedImage</span>,
+  <span class="tk-k">type</span> <span class="tk-t">ModelCapability</span>,
+  <span class="tk-t">ModelRouter</span>,
+} <span class="tk-k">from</span> <span class="tk-s">"@swoosh-dev/router"</span>;
+
+<span class="tk-k">const</span> textModel: <span class="tk-t">ModelCapability</span> = {
+  providerId: <span class="tk-s">"anthropic"</span>,
+  providerName: <span class="tk-s">"Anthropic"</span>,
+  modelId: <span class="tk-s">"claude-haiku-4-5"</span>,
+  modelName: <span class="tk-s">"Claude Haiku 4.5"</span>,
+  inputModalities: [<span class="tk-s">"text"</span>],
+  outputModalities: [<span class="tk-s">"text"</span>],
+  features: [<span class="tk-s">"structured_output"</span>],
+  limits: { contextTokens: <span class="tk-n">200_000</span> },
+  pricing: { inputPerMillionTokens: <span class="tk-n">1</span>, outputPerMillionTokens: <span class="tk-n">5</span> },
+};
+
+<span class="tk-k">const</span> imageModel: <span class="tk-t">ModelCapability</span> = {
+  providerId: <span class="tk-s">"imagegen"</span>,
+  providerName: <span class="tk-s">"ImageGen"</span>,
+  modelId: <span class="tk-s">"image-1"</span>,
+  modelName: <span class="tk-s">"Image One"</span>,
+  inputModalities: [<span class="tk-s">"text"</span>],
+  outputModalities: [<span class="tk-s">"image"</span>],
+  features: [],
+  limits: {},
+  pricing: {},
+};
+
+<span class="tk-k">const</span> router = <span class="tk-k">new</span> <span class="tk-t">ModelRouter</span>({
+  catalog: createStaticCapabilityCatalog([textModel, imageModel]),
+  providers: [
+    createCallbackProviderAdapter({
+      providerId: <span class="tk-s">"anthropic"</span>,
+      generateText: () =&gt; <span class="tk-s">"Crisp, calm, and a little playful."</span>,
+      generateObject: () =&gt; ({ tone: <span class="tk-s">"warm"</span>, energy: <span class="tk-s">"high"</span> }),
+    }),
+    createCallbackProviderAdapter({
+      providerId: <span class="tk-s">"imagegen"</span>,
+      generateImage: () =&gt; ({ base64: <span class="tk-s">"iVBORw0KGgo="</span>, mediaType: <span class="tk-s">"image/png"</span> }),
+    }),
+  ],
+  defaultPreference: <span class="tk-s">"cheapest"</span>,
+});
+
+<span class="tk-c">// 1) text — no schema and no image modality</span>
+<span class="tk-k">const</span> text = <span class="tk-k">await</span> router.generate&lt;string, string&gt;({
+  task: <span class="tk-s">"brand.tagline"</span>,
+  input: <span class="tk-s">"an artisan bakery"</span>,
+  inputModalities: [<span class="tk-s">"text"</span>],
+  prompt: <span class="tk-s">"Write a one-line tagline."</span>,
+});
+console.log(<span class="tk-s">"text   "</span>, text.output, <span class="tk-s">`(via ${text.attempts.at(-1)?.providerId})`</span>);
+
+<span class="tk-c">// 2) structured — a `schema` is present</span>
+<span class="tk-k">const</span> object = <span class="tk-k">await</span> router.generate&lt;string, { tone: string; energy: string }&gt;({
+  task: <span class="tk-s">"brand.voice"</span>,
+  input: <span class="tk-s">"an artisan bakery"</span>,
+  inputModalities: [<span class="tk-s">"text"</span>],
+  schema: { <span class="tk-k">type</span>: <span class="tk-s">"object"</span> },
+});
+console.log(<span class="tk-s">"object "</span>, object.output, <span class="tk-s">`(via ${object.attempts.at(-1)?.providerId})`</span>);
+
+<span class="tk-c">// 3) image — outputModalities includes "image"</span>
+<span class="tk-k">const</span> image = <span class="tk-k">await</span> router.generate&lt;string, <span class="tk-t">GeneratedImage</span>&gt;({
+  task: <span class="tk-s">"brand.hero"</span>,
+  input: <span class="tk-s">"an artisan bakery"</span>,
+  inputModalities: [<span class="tk-s">"text"</span>],
+  outputModalities: [<span class="tk-s">"image"</span>],
+  prompt: <span class="tk-s">"A warm overhead shot of fresh sourdough."</span>,
+});
+console.log(
+  <span class="tk-s">"image  "</span>,
+  <span class="tk-s">`${image.output.mediaType}, ${image.output.base64.length} b64 chars`</span>,
+  <span class="tk-s">`(via ${image.attempts.at(-1)?.providerId})`</span>,
+);</code></pre>
     </section>
   </main>
 </div>

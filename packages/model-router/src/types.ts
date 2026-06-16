@@ -91,6 +91,40 @@ export interface ProviderGenerateTextRequest<Input = unknown> extends GenerateTe
   readonly model: ModelCapability;
 }
 
+/** A generated image, returned by an adapter's `generateImage`. */
+export interface GeneratedImage {
+  readonly base64: string;
+  readonly mediaType: string;
+}
+
+export interface GenerateImageRequest<Input = unknown> extends TaskRequest<Input> {
+  readonly prompt?: string;
+  readonly metadata?: Record<string, unknown>;
+}
+
+export interface ProviderGenerateImageRequest<Input = unknown>
+  extends GenerateImageRequest<Input> {
+  readonly model: ModelCapability;
+}
+
+/**
+ * The unified generation request used by {@link ModelRouter.generate}. The kind
+ * of output is inferred from the request itself, not from a method name:
+ *
+ *   • `outputModalities` includes `"image"` → an image (`GeneratedImage`)
+ *   • a `schema` is present                 → a schema-validated object
+ *   • otherwise                             → free text
+ *
+ * Structured output is **not** a modality — it is still text output, just
+ * constrained by a `schema` (and routable via the `structured_output` feature).
+ * Modalities describe the medium (text, image, audio, …).
+ */
+export interface GenerateRequest<Input = unknown> extends TaskRequest<Input> {
+  readonly prompt?: string;
+  readonly schema?: unknown;
+  readonly metadata?: Record<string, unknown>;
+}
+
 export interface ProviderAdapter {
   readonly providerId: string;
   readonly name?: string;
@@ -99,6 +133,9 @@ export interface ProviderAdapter {
     request: ProviderGenerateObjectRequest<Input>,
   ): Promise<Output>;
   generateText?<Input>(request: ProviderGenerateTextRequest<Input>): Promise<string>;
+  generateImage?<Input>(
+    request: ProviderGenerateImageRequest<Input>,
+  ): Promise<GeneratedImage>;
 }
 
 export interface CapabilityCatalog {

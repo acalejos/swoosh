@@ -62,6 +62,20 @@ interface AiSdkProviderOptions {
         readonly input?: unknown;
         readonly metadata?: Record<string, unknown>;
     }) => Promise<string>;
+    /**
+     * Generate an image. The router routes a request whose `outputModalities`
+     * includes `"image"` here; return the bytes as base64 plus a media type
+     * (e.g. via the AI SDK's `experimental_generateImage`).
+     */
+    readonly generateImage?: (request: {
+        readonly model: unknown;
+        readonly prompt?: string;
+        readonly input?: unknown;
+        readonly metadata?: Record<string, unknown>;
+    }) => Promise<{
+        base64: string;
+        mediaType: string;
+    }>;
 }
 /**
  * Wraps Vercel AI SDK calls as a swoosh provider adapter. The router selects a

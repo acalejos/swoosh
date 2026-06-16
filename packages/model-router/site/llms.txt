@@ -24,6 +24,7 @@ Runnable, offline (simulated providers, no API keys):
 - [09-load-balancing](https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/09-load-balancing.ts): LiteLLM-style rotation, two ways:   • loadBalance — spread requests across the N cheapest providers, not just #1.   • roundRobin  — rotate API keys within one provider to spread rate limits.
 - [10-benchmark-routing](https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/10-benchmark-routing.ts): Route by benchmark performance, not just price. byBenchmark ranks on a named benchmark — or a function that blends several, so you decide what "best" means.
 - [11-llm-judge](https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/11-llm-judge.ts): Dynamic routing: an LLM judge classifies each prompt, then the policy routes by the verdict — cheap models for chat, top models for coding, search models for research. The classifier returns structured output (the category).
+- [12-unified-generate](https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/12-unified-generate.ts): One method, three kinds of output — the request decides, not the method name.
 
 ## Optional
 - [llms-full.txt](https://acalejos.github.io/swoosh/llms-full.txt): the entire documentation — every README, full type signatures, and all example sources — in a single file.

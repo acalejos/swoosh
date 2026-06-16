@@ -33,7 +33,7 @@ Hard-coding `model: "gpt-..."` couples your application to one provider's naming
 - **Intent, not model IDs.** Requests declare requirements (`inputModalities: ["text", "image"]`, `requiresFeatures: ["structured_output"]`), and the router finds models that satisfy them.
 - **Policy, not hope.** Constraints (`maxCostUsd`, `maxLatencyClass`, provider allow/deny lists) are enforced at planning time, with a per-model rejection reason you can log or display.
 - **Plans are inspectable.** `plan()` returns the selected model, ranked fallbacks, every rejected candidate with its reason, and a cost estimate — before anything is executed.
-- **Execution falls back automatically.** `run()` / `runText()` walk the ranked routes until one succeeds, recording each attempt.
+- **Execution falls back automatically.** `generate()` walks the ranked routes until one succeeds, recording each attempt.
 
 ## Quick start
 
@@ -56,16 +56,40 @@ const router = new ModelRouter({
   defaultPreference: "balanced",
 });
 
-const recipe = await router.generateObject({
+const { output: recipe } = await router.generate({
   task: "recipe.extract",
   input: pageText,
   prompt: "Extract the recipe from this page.",
   inputModalities: ["text"],
+  schema: recipeSchema, // a `schema` makes this structured output
   requiresFeatures: ["structured_output"],
   preference: "cheapest",
   constraints: { maxCostUsd: 0.01 },
 });
 ```
+
+One method, output inferred from the request — not the method name:
+
+```ts
+// free text — no schema, no image modality
+const { output: blurb } = await router.generate<string, string>({
+  task: "tagline", input: brief, inputModalities: ["text"], prompt: "Write a tagline.",
+});
+
+// structured — a `schema` is present
+const { output: recipe } = await router.generate({
+  task: "recipe.extract", input: pageText, inputModalities: ["text"], schema: recipeSchema,
+});
+
+// image — `outputModalities` includes "image"
+import type { GeneratedImage } from "@swoosh-dev/router";
+const { output: image } = await router.generate<string, GeneratedImage>({
+  task: "thumbnail", input: brief, inputModalities: ["text"], outputModalities: ["image"],
+  prompt: "A warm overhead photo of the finished dish.",
+});
+```
+
+> Structured output is **not** a modality — it's still text, just constrained by a `schema`. Modalities (`text`, `image`, `audio`, …) describe the medium. `run()` / `runText()` / `generateObject()` / `generateText()` still work as thin **deprecated** aliases.
 
 ## Planning without executing
 
@@ -109,7 +133,7 @@ preference: byBenchmark((m) => 0.7 * (m.benchmarks?.swe_bench ?? 0) + 0.3 * (m.b
 
 ## Provider adapters
 
-Adapters are tiny — implement `generateObject` and/or `generateText` against your client of choice:
+Adapters are tiny — implement any of `generateText`, `generateObject`, and/or `generateImage` against your client of choice. The router dispatches to the matching one based on the request (image modality → `generateImage`, `schema` → `generateObject`, else `generateText`), and only routes to a model whose adapter implements the method it needs:
 
 ```ts
 import { createCallbackProviderAdapter } from "@swoosh-dev/router";
@@ -118,6 +142,8 @@ const anthropic = createCallbackProviderAdapter({
   providerId: "anthropic",
   isAvailable: () => Boolean(process.env.ANTHROPIC_API_KEY),
   generateText: async ({ model, prompt }) => callClaude(model.modelId, prompt),
+  generateObject: async ({ model, schema, prompt }) => callClaudeJson(model.modelId, schema, prompt),
+  generateImage: async ({ model, prompt }) => callImageModel(model.modelId, prompt), // { base64, mediaType }
 });
 ```
 
@@ -177,7 +203,7 @@ bun packages/model-router/examples/01-quickstart.ts
 | `catalog` | `createCapabilityCatalog` (bring your own DB/API), `filterCapabilityCatalog` (scope to accessible models), `mergeCapabilities` (enrich with overrides), `createStaticCapabilityCatalog`, `ModelsDevCapabilityCatalog`, `normalizeModelsDevCatalog` |
 | `policy` | Built-in preference policies, `byBenchmark` (rank by a benchmark or composite score), cost estimation, quality scoring |
 | `balance` | `loadBalance` (rotate across the top-N providers), `roundRobin` (rotate keys within a provider) |
-| `router` | `ModelRouter` — `plan`, `run`, `runText`, `generateObject`, `generateText` |
+| `router` | `ModelRouter` — `plan`, `generate` (text / object / image, inferred from the request); `run` / `runText` / `generateObject` / `generateText` are deprecated aliases |
 | `adapters` | `createCallbackProviderAdapter` |
 | `env` | `hasApiKey`, `apiKeyEnvVars`, `apiKeyEnvVarsFor` — detect provider keys from the environment |
 
@@ -261,12 +287,42 @@ interface GenerateTextRequest<Input = unknown> extends TaskRequest<Input> {
 interface ProviderGenerateTextRequest<Input = unknown> extends GenerateTextRequest<Input> {
     readonly model: ModelCapability;
 }
+/** A generated image, returned by an adapter's `generateImage`. */
+interface GeneratedImage {
+    readonly base64: string;
+    readonly mediaType: string;
+}
+interface GenerateImageRequest<Input = unknown> extends TaskRequest<Input> {
+    readonly prompt?: string;
+    readonly metadata?: Record<string, unknown>;
+}
+interface ProviderGenerateImageRequest<Input = unknown> extends GenerateImageRequest<Input> {
+    readonly model: ModelCapability;
+}
+/**
+ * The unified generation request used by {@link ModelRouter.generate}. The kind
+ * of output is inferred from the request itself, not from a method name:
+ *
+ *   • `outputModalities` includes `"image"` → an image (`GeneratedImage`)
+ *   • a `schema` is present                 → a schema-validated object
+ *   • otherwise                             → free text
+ *
+ * Structured output is **not** a modality — it is still text output, just
+ * constrained by a `schema` (and routable via the `structured_output` feature).
+ * Modalities describe the medium (text, image, audio, …).
+ */
+interface GenerateRequest<Input = unknown> extends TaskRequest<Input> {
+    readonly prompt?: string;
+    readonly schema?: unknown;
+    readonly metadata?: Record<string, unknown>;
+}
 interface ProviderAdapter {
     readonly providerId: string;
     readonly name?: string;
     isAvailable?(): boolean;
     generateObject?<Input, Output>(request: ProviderGenerateObjectRequest<Input>): Promise<Output>;
     generateText?<Input>(request: ProviderGenerateTextRequest<Input>): Promise<string>;
+    generateImage?<Input>(request: ProviderGenerateImageRequest<Input>): Promise<GeneratedImage>;
 }
 interface CapabilityCatalog {
     listCapabilities(): Promise<readonly ModelCapability[]>;
@@ -428,9 +484,31 @@ declare class ModelRouter {
     private readonly providers;
     constructor(options: ModelRouterOptions);
     plan<Input>(request: TaskRequest<Input>): Promise<RoutePlan>;
+    /**
+     * Generate from the best-routed model. The kind of output is inferred from
+     * the request, not the method name:
+     *
+     *   • `outputModalities` includes `"image"` → an image (set `Output` to
+     *     `GeneratedImage`); routes to the adapter's `generateImage`
+     *   • a `schema` is present → a schema-validated object; routes to
+     *     `generateObject`
+     *   • otherwise → free text (set `Output` to `string`); routes to
+     *     `generateText`
+     *
+     * A model is only eligible if its catalog entry supports the requested
+     * modalities/features AND its adapter implements the matching method; if not,
+     * the router falls through to the next route.
+     */
+    generate<Input, Output>(request: GenerateRequest<Input>): Promise<RouterRunResult<Output>>;
+    /** @deprecated Use {@link generate} — it infers structured output from a
+     *  `schema` in the request. `run` remains as a thin alias. */
     run<Input, Output>(request: GenerateObjectRequest<Input>): Promise<RouterRunResult<Output>>;
+    /** @deprecated Use {@link generate} — text is the default when no `schema`
+     *  or image modality is requested. */
     runText<Input>(request: GenerateTextRequest<Input>): Promise<RouterRunResult<string>>;
+    /** @deprecated Use `(await generate(req)).output`. */
     generateObject<Input, Output>(request: GenerateObjectRequest<Input>): Promise<Output>;
+    /** @deprecated Use `(await generate(req)).output`. */
     generateText<Input>(request: GenerateTextRequest<Input>): Promise<string>;
     private executePlan;
 }
@@ -441,6 +519,7 @@ interface CallbackProviderOptions {
     readonly isAvailable?: () => boolean;
     readonly generateObject?: (request: ProviderGenerateObjectRequest) => unknown;
     readonly generateText?: (request: ProviderGenerateTextRequest) => Promise<string> | string;
+    readonly generateImage?: (request: ProviderGenerateImageRequest) => Promise<GeneratedImage> | GeneratedImage;
 }
 declare const createCallbackProviderAdapter: (options: CallbackProviderOptions) => ProviderAdapter;
 
@@ -478,5 +557,5 @@ declare const apiKeyEnvVarsFor: (providerId: string) => readonly string[];
  */
 declare const hasApiKey: (providerId: string, options?: HasApiKeyOptions) => boolean;
 
-export { type ByBenchmarkOptions, type CallbackProviderOptions, type CapabilityCatalog, type CapabilityOverride, type GenerateObjectRequest, type GenerateTextRequest, type HasApiKeyOptions, type LatencyClass, type LoadBalanceOptions, type LoadBalanceStrategy, type ModelCapability, type ModelFeature, type ModelLimits, type ModelModality, type ModelPricing, ModelRouter, ModelRouterError, type ModelRouterOptions, ModelsDevCapabilityCatalog, type ProviderAdapter, type ProviderGenerateObjectRequest, type ProviderGenerateTextRequest, type RankedModel, type RejectedModel, type RoutePlan, type RouterAttempt, type RouterRunResult, type RoutingPolicy, type RoutingPolicyContext, type RoutingPreference, StaticCapabilityCatalog, type TaskConstraints, type TaskRequest, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, createCallbackProviderAdapter, createCapabilityCatalog, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, loadBalance, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, qualityScore, roundRobin };
+export { type ByBenchmarkOptions, type CallbackProviderOptions, type CapabilityCatalog, type CapabilityOverride, type GenerateImageRequest, type GenerateObjectRequest, type GenerateRequest, type GenerateTextRequest, type GeneratedImage, type HasApiKeyOptions, type LatencyClass, type LoadBalanceOptions, type LoadBalanceStrategy, type ModelCapability, type ModelFeature, type ModelLimits, type ModelModality, type ModelPricing, ModelRouter, ModelRouterError, type ModelRouterOptions, ModelsDevCapabilityCatalog, type ProviderAdapter, type ProviderGenerateImageRequest, type ProviderGenerateObjectRequest, type ProviderGenerateTextRequest, type RankedModel, type RejectedModel, type RoutePlan, type RouterAttempt, type RouterRunResult, type RoutingPolicy, type RoutingPolicyContext, type RoutingPreference, StaticCapabilityCatalog, type TaskConstraints, type TaskRequest, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, createCallbackProviderAdapter, createCapabilityCatalog, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, loadBalance, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, qualityScore, roundRobin };
 ```

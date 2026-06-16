@@ -1,7 +1,10 @@
 export {
   ModelRouterError,
   type CapabilityCatalog,
+  type GeneratedImage,
+  type GenerateImageRequest,
   type GenerateObjectRequest,
+  type GenerateRequest,
   type GenerateTextRequest,
   type LatencyClass,
   type ModelCapability,
@@ -10,6 +13,7 @@ export {
   type ModelModality,
   type ModelPricing,
   type ProviderAdapter,
+  type ProviderGenerateImageRequest,
   type ProviderGenerateObjectRequest,
   type ProviderGenerateTextRequest,
   type RankedModel,

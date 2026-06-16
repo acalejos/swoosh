@@ -1,5 +1,7 @@
 import type {
+  GeneratedImage,
   ProviderAdapter,
+  ProviderGenerateImageRequest,
   ProviderGenerateObjectRequest,
   ProviderGenerateTextRequest,
 } from "./types";
@@ -10,6 +12,9 @@ export interface CallbackProviderOptions {
   readonly isAvailable?: () => boolean;
   readonly generateObject?: (request: ProviderGenerateObjectRequest) => unknown;
   readonly generateText?: (request: ProviderGenerateTextRequest) => Promise<string> | string;
+  readonly generateImage?: (
+    request: ProviderGenerateImageRequest,
+  ) => Promise<GeneratedImage> | GeneratedImage;
 }
 
 export const createCallbackProviderAdapter = (
@@ -23,5 +28,8 @@ export const createCallbackProviderAdapter = (
     : undefined,
   generateText: options.generateText
     ? async (request) => options.generateText!(request)
+    : undefined,
+  generateImage: options.generateImage
+    ? async (request) => options.generateImage!(request)
     : undefined,
 });

@@ -2,6 +2,7 @@ import { estimatedCostUsd, explainCandidate, latencyWeight, namedPolicy, quality
 import {
   type CapabilityCatalog,
   type GenerateObjectRequest,
+  type GenerateRequest,
   type GenerateTextRequest,
   type ModelCapability,
   ModelRouterError,
@@ -161,6 +162,73 @@ export class ModelRouter {
     };
   }
 
+  /**
+   * Generate from the best-routed model. The kind of output is inferred from
+   * the request, not the method name:
+   *
+   *   • `outputModalities` includes `"image"` → an image (set `Output` to
+   *     `GeneratedImage`); routes to the adapter's `generateImage`
+   *   • a `schema` is present → a schema-validated object; routes to
+   *     `generateObject`
+   *   • otherwise → free text (set `Output` to `string`); routes to
+   *     `generateText`
+   *
+   * A model is only eligible if its catalog entry supports the requested
+   * modalities/features AND its adapter implements the matching method; if not,
+   * the router falls through to the next route.
+   */
+  async generate<Input, Output>(
+    request: GenerateRequest<Input>,
+  ): Promise<RouterRunResult<Output>> {
+    const plan = await this.plan(request);
+    const wantsImage = (request.outputModalities ?? defaultOutputModalities).includes(
+      "image",
+    );
+
+    if (wantsImage) {
+      return this.executePlan<Output>(
+        plan,
+        request.task,
+        (adapter, capability) =>
+          adapter.generateImage
+            ? (adapter.generateImage<Input>({
+                ...request,
+                model: capability,
+              }) as Promise<Output>)
+            : undefined,
+        "Provider adapter cannot generate images.",
+      );
+    }
+
+    if (request.schema !== undefined) {
+      return this.executePlan<Output>(
+        plan,
+        request.task,
+        (adapter, capability) =>
+          adapter.generateObject
+            ? adapter.generateObject<Input, Output>({ ...request, model: capability })
+            : undefined,
+        "Provider adapter cannot generate objects.",
+      );
+    }
+
+    return this.executePlan<Output>(
+      plan,
+      request.task,
+      (adapter, capability) =>
+        adapter.generateText
+          ? (adapter.generateText<Input>({
+              ...request,
+              prompt: request.prompt ?? "",
+              model: capability,
+            }) as Promise<Output>)
+          : undefined,
+      "Provider adapter cannot generate text.",
+    );
+  }
+
+  /** @deprecated Use {@link generate} — it infers structured output from a
+   *  `schema` in the request. `run` remains as a thin alias. */
   async run<Input, Output>(
     request: GenerateObjectRequest<Input>,
   ): Promise<RouterRunResult<Output>> {
@@ -176,6 +244,8 @@ export class ModelRouter {
     );
   }
 
+  /** @deprecated Use {@link generate} — text is the default when no `schema`
+   *  or image modality is requested. */
   async runText<Input>(request: GenerateTextRequest<Input>): Promise<RouterRunResult<string>> {
     const plan = await this.plan(request);
     return this.executePlan<string>(
@@ -189,10 +259,12 @@ export class ModelRouter {
     );
   }
 
+  /** @deprecated Use `(await generate(req)).output`. */
   async generateObject<Input, Output>(request: GenerateObjectRequest<Input>): Promise<Output> {
     return (await this.run<Input, Output>(request)).output;
   }
 
+  /** @deprecated Use `(await generate(req)).output`. */
   async generateText<Input>(request: GenerateTextRequest<Input>): Promise<string> {
     return (await this.runText<Input>(request)).output;
   }

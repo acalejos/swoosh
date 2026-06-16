@@ -1,6 +1,6 @@
 {
   "name": "@swoosh-dev/ai-sdk",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Vercel AI SDK provider adapter for @swoosh-dev/router.",
   "license": "Apache-2.0",
   "type": "module",

@@ -23,6 +23,17 @@ export interface AiSdkProviderOptions {
     readonly input?: unknown;
     readonly metadata?: Record<string, unknown>;
   }) => Promise<string>;
+  /**
+   * Generate an image. The router routes a request whose `outputModalities`
+   * includes `"image"` here; return the bytes as base64 plus a media type
+   * (e.g. via the AI SDK's `experimental_generateImage`).
+   */
+  readonly generateImage?: (request: {
+    readonly model: unknown;
+    readonly prompt?: string;
+    readonly input?: unknown;
+    readonly metadata?: Record<string, unknown>;
+  }) => Promise<{ base64: string; mediaType: string }>;
 }
 
 const resolveModel = (models: AiSdkProviderOptions["models"], modelId: string): unknown =>
@@ -53,6 +64,15 @@ export const createAiSdkProviderAdapter = (options: AiSdkProviderOptions): Provi
     generateText: options.generateText
       ? (request) =>
           options.generateText!({
+            model: resolveModel(options.models, request.model.modelId),
+            prompt: request.prompt,
+            input: request.input,
+            metadata: request.metadata,
+          })
+      : undefined,
+    generateImage: options.generateImage
+      ? (request) =>
+          options.generateImage!({
             model: resolveModel(options.models, request.model.modelId),
             prompt: request.prompt,
             input: request.input,

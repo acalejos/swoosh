@@ -1,6 +1,6 @@
 {
   "name": "@swoosh-dev/judge",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Dynamic routing policies for @swoosh-dev/router — classify the prompt with an LLM judge (structured output) and route accordingly.",
   "license": "Apache-2.0",
   "type": "module",
