@@ -11,14 +11,17 @@
     "google",
     "google-vertex",
     "groq",
+    "jina",
     "mistral",
+    "mixedbread",
     "openai",
     "openrouter",
     "perplexity",
     "togetherai",
+    "voyage",
     "xai"
   ],
-  "count": 790,
+  "count": 796,
   "models": [
     {
       "providerId": "amazon-bedrock",
@@ -6585,6 +6588,52 @@
       "lastUpdated": "2026-06-09"
     },
     {
+      "providerId": "cohere",
+      "providerName": "Cohere",
+      "modelId": "rerank-3.5",
+      "modelName": "Rerank 3.5",
+      "inputModalities": [
+        "text"
+      ],
+      "outputModalities": [],
+      "features": [],
+      "limits": {},
+      "pricing": {},
+      "latencyClass": "fast",
+      "qualityScore": 8,
+      "rerank": {
+        "maxDocuments": 1000,
+        "maxTokensPerDoc": 4096,
+        "pricePerSearchUsd": 0.002
+      },
+      "benchmarks": {
+        "mteb_rerank": 0.62
+      }
+    },
+    {
+      "providerId": "cohere",
+      "providerName": "Cohere",
+      "modelId": "rerank-multilingual-v3.0",
+      "modelName": "Rerank Multilingual v3.0",
+      "inputModalities": [
+        "text"
+      ],
+      "outputModalities": [],
+      "features": [],
+      "limits": {},
+      "pricing": {},
+      "latencyClass": "fast",
+      "qualityScore": 7.5,
+      "rerank": {
+        "maxDocuments": 1000,
+        "maxTokensPerDoc": 4096,
+        "pricePerSearchUsd": 0.002
+      },
+      "benchmarks": {
+        "mteb_rerank": 0.6
+      }
+    },
+    {
       "providerId": "deepseek",
       "providerName": "DeepSeek",
       "modelId": "deepseek-chat",
@@ -9104,6 +9153,29 @@
       "lastUpdated": "2024-10-01"
     },
     {
+      "providerId": "jina",
+      "providerName": "Jina AI",
+      "modelId": "jina-reranker-v2-base-multilingual",
+      "modelName": "Jina Reranker v2",
+      "inputModalities": [
+        "text"
+      ],
+      "outputModalities": [],
+      "features": [],
+      "limits": {},
+      "pricing": {
+        "inputPerMillionTokens": 0.02
+      },
+      "latencyClass": "fast",
+      "qualityScore": 6.5,
+      "rerank": {
+        "maxDocuments": 1000
+      },
+      "benchmarks": {
+        "mteb_rerank": 0.55
+      }
+    },
+    {
       "providerId": "mistral",
       "providerName": "Mistral",
       "modelId": "codestral-latest",
@@ -9878,6 +9950,29 @@
       },
       "releaseDate": "2024-11-01",
       "lastUpdated": "2024-11-04"
+    },
+    {
+      "providerId": "mixedbread",
+      "providerName": "Mixedbread",
+      "modelId": "mxbai-rerank-large-v2",
+      "modelName": "mxbai Rerank Large v2",
+      "inputModalities": [
+        "text"
+      ],
+      "outputModalities": [],
+      "features": [],
+      "limits": {},
+      "pricing": {
+        "inputPerMillionTokens": 0.01
+      },
+      "latencyClass": "fast",
+      "qualityScore": 6,
+      "rerank": {
+        "maxDocuments": 1000
+      },
+      "benchmarks": {
+        "mteb_rerank": 0.56
+      }
     },
     {
       "providerId": "openai",
@@ -21434,6 +21529,54 @@
       },
       "releaseDate": "2026-04-07",
       "lastUpdated": "2026-04-07"
+    },
+    {
+      "providerId": "voyage",
+      "providerName": "Voyage AI",
+      "modelId": "rerank-2",
+      "modelName": "Rerank 2",
+      "inputModalities": [
+        "text"
+      ],
+      "outputModalities": [],
+      "features": [],
+      "limits": {},
+      "pricing": {
+        "inputPerMillionTokens": 0.05
+      },
+      "latencyClass": "standard",
+      "qualityScore": 8,
+      "rerank": {
+        "maxDocuments": 1000,
+        "maxTokensPerDoc": 16000
+      },
+      "benchmarks": {
+        "mteb_rerank": 0.63
+      }
+    },
+    {
+      "providerId": "voyage",
+      "providerName": "Voyage AI",
+      "modelId": "rerank-2-lite",
+      "modelName": "Rerank 2 Lite",
+      "inputModalities": [
+        "text"
+      ],
+      "outputModalities": [],
+      "features": [],
+      "limits": {},
+      "pricing": {
+        "inputPerMillionTokens": 0.02
+      },
+      "latencyClass": "fast",
+      "qualityScore": 7,
+      "rerank": {
+        "maxDocuments": 1000,
+        "maxTokensPerDoc": 8000
+      },
+      "benchmarks": {
+        "mteb_rerank": 0.59
+      }
     },
     {
       "providerId": "xai",

@@ -37,7 +37,7 @@ const router = new ModelRouter({
 Generated from source — the authoritative public API.
 
 ```ts
-import { ProviderAdapter } from '@swoosh-dev/router';
+import { ImagePart, ProviderAdapter } from '@swoosh-dev/router';
 
 interface AiSdkProviderOptions {
     readonly providerId: string;
@@ -54,12 +54,14 @@ interface AiSdkProviderOptions {
         readonly schema?: unknown;
         readonly prompt?: string;
         readonly input?: unknown;
+        readonly images?: readonly ImagePart[];
         readonly metadata?: Record<string, unknown>;
     }) => Promise<unknown>;
     readonly generateText?: (request: {
         readonly model: unknown;
         readonly prompt?: string;
         readonly input?: unknown;
+        readonly images?: readonly ImagePart[];
         readonly metadata?: Record<string, unknown>;
     }) => Promise<string>;
     /**

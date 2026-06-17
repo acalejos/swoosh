@@ -62,6 +62,12 @@ export interface ModelCapability {
     readonly maxDocuments?: number;
     readonly maxTokensPerDoc?: number;
     readonly maxQueryTokens?: number;
+    /**
+     * Flat price per rerank call (some providers bill per search, e.g. Cohere ~
+     * $2/1k searches → 0.002). When set, it's used as the cost for cost-based
+     * routing; otherwise per-token `pricing` is used (Voyage/Jina bill per token).
+     */
+    readonly pricePerSearchUsd?: number;
   };
 }
 
@@ -74,10 +80,27 @@ export interface TaskConstraints {
   readonly allowFallbacks?: boolean;
 }
 
+/** An image attached to a multimodal request. */
+export interface ImageInput {
+  /** Base64 data, a `data:` URL, or a remote URL. */
+  readonly data: string;
+  /** e.g. `"image/png"` — recommended for base64/data URLs. */
+  readonly mediaType?: string;
+}
+
+/** A string (URL or `data:` URL) or a structured {@link ImageInput}. */
+export type ImagePart = string | ImageInput;
+
 export interface TaskRequest<Input = unknown> {
   readonly task: string;
   readonly input: Input;
   readonly inputModalities: readonly ModelModality[];
+  /**
+   * Image inputs for multimodal requests. A first-class slot so adapters read
+   * `request.images` instead of smuggling them through `metadata`. Declare
+   * `inputModalities: ["text", "image"]` so routing filters to vision models.
+   */
+  readonly images?: readonly ImagePart[];
   readonly outputModalities?: readonly ModelModality[];
   readonly estimatedInputTokens?: number;
   readonly estimatedOutputTokens?: number;

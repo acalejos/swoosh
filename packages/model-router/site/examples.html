@@ -308,23 +308,28 @@ printPlan(plan);</code></pre>
   providers: [<span class="tk-s">"google"</span>, <span class="tk-s">"anthropic"</span>, <span class="tk-s">"openai"</span>, <span class="tk-s">"mistral"</span>, <span class="tk-s">"local"</span>].map((providerId) =&gt;
     createCallbackProviderAdapter({
       providerId,
-      generateObject: () =&gt;
-        ({
+      <span class="tk-c">// images arrive as a first-class field — no metadata smuggling.</span>
+      generateObject: (request) =&gt; {
+        console.log(<span class="tk-s">`  ${providerId} received ${request.images?.length ?? 0} image(s)`</span>);
+        <span class="tk-k">return</span> {
           merchant: <span class="tk-s">"Blue Bottle Coffee"</span>,
           totalCents: <span class="tk-n">1250</span>,
           lineItems: [
             { label: <span class="tk-s">"Latte"</span>, cents: <span class="tk-n">650</span> },
             { label: <span class="tk-s">"Croissant"</span>, cents: <span class="tk-n">600</span> },
           ],
-        }) <span class="tk-k">satisfies</span> <span class="tk-t">Receipt</span>,
+        } <span class="tk-k">satisfies</span> <span class="tk-t">Receipt</span>;
+      },
     }),
   ),
 });
 
-<span class="tk-k">const</span> result = <span class="tk-k">await</span> router.run&lt;{ imageBase64: string }, <span class="tk-t">Receipt</span>&gt;({
+<span class="tk-k">const</span> result = <span class="tk-k">await</span> router.generate&lt;string, <span class="tk-t">Receipt</span>&gt;({
   task: <span class="tk-s">"receipt.extract"</span>,
-  input: { imageBase64: <span class="tk-s">"(receipt photo)"</span> },
+  input: <span class="tk-s">""</span>,
   prompt: <span class="tk-s">"Extract the merchant, total, and line items from this receipt."</span>,
+  schema: { <span class="tk-k">type</span>: <span class="tk-s">"object"</span> },
+  images: [{ data: <span class="tk-s">"data:image/png;base64,(receipt photo)"</span>, mediaType: <span class="tk-s">"image/png"</span> }],
   inputModalities: [<span class="tk-s">"text"</span>, <span class="tk-s">"image"</span>],
   requiresFeatures: [<span class="tk-s">"structured_output"</span>],
   preference: <span class="tk-s">"cheapest"</span>,
@@ -891,6 +896,7 @@ console.log(
 <span class="tk-k">import</span> {
   createCallbackProviderAdapter,
   createStaticCapabilityCatalog,
+  llmReranker,
   <span class="tk-t">ModelRouter</span>,
   <span class="tk-k">type</span> <span class="tk-t">ModelCapability</span>,
 } <span class="tk-k">from</span> <span class="tk-s">"@swoosh-dev/router"</span>;
@@ -937,19 +943,29 @@ console.log(
       documents.map((doc, index) =&gt; ({ index, score: relevance(query, doc) })),
   });
 
-<span class="tk-c">// LLM reranker: scores AND a natural-language reason per result.</span>
-<span class="tk-k">const</span> llmReranker = createCallbackProviderAdapter({
+<span class="tk-c">// LLM reranker: the llmReranker() helper turns a structured-output call into a</span>
+<span class="tk-c">// rerank callback (ordering + reasons). Here the "LLM" is faked offline by</span>
+<span class="tk-c">// reading the query/documents back out of the prompt the helper builds.</span>
+<span class="tk-k">const</span> fakeStructuredLlm = ({ prompt }: { prompt: string }) =&gt; {
+  <span class="tk-k">const</span> query = (prompt.match(/<span class="tk-t">Query</span>: (.*)/)?.[<span class="tk-n">1</span>] ?? <span class="tk-s">""</span>).toLowerCase();
+  <span class="tk-k">const</span> terms = <span class="tk-k">new</span> <span class="tk-t">Set</span>(query.split(/\<span class="tk-t">W</span>+/).filter(<span class="tk-t">Boolean</span>));
+  <span class="tk-k">const</span> docs = [...prompt.matchAll(/^\[(\d+)\] (.*)$/gm)].map((m) =&gt; ({ index: <span class="tk-t">Number</span>(m[<span class="tk-n">1</span>]), text: m[<span class="tk-n">2</span>]! }));
+  <span class="tk-k">const</span> ranking = docs
+    .map((d) =&gt; ({ index: d.index, hits: d.text.toLowerCase().split(/\<span class="tk-t">W</span>+/).filter((w) =&gt; terms.has(w)).length }))
+    .filter((d) =&gt; d.hits &gt; <span class="tk-n">0</span>)
+    .sort((a, b) =&gt; b.hits - a.hits)
+    .map((d) =&gt; ({ index: d.index, reason: <span class="tk-s">`matches ${d.hits} query term(s)`</span> }));
+  <span class="tk-k">return</span> { ranking };
+};
+
+<span class="tk-k">const</span> llmRerankAdapter = createCallbackProviderAdapter({
   providerId: <span class="tk-s">"openai"</span>,
-  rerank: ({ query, documents }) =&gt;
-    documents.map((doc, index) =&gt; {
-      <span class="tk-k">const</span> score = relevance(query, doc);
-      <span class="tk-k">return</span> { index, score, reason: score ? <span class="tk-s">`mentions ${score} of the query terms`</span> : <span class="tk-s">"off-topic"</span> };
-    }),
+  rerank: llmReranker({ generateObject: fakeStructuredLlm }),
 });
 
 <span class="tk-k">const</span> router = <span class="tk-k">new</span> <span class="tk-t">ModelRouter</span>({
   catalog,
-  providers: [crossEncoder(<span class="tk-s">"cohere"</span>), crossEncoder(<span class="tk-s">"voyage"</span>), llmReranker],
+  providers: [crossEncoder(<span class="tk-s">"cohere"</span>), crossEncoder(<span class="tk-s">"voyage"</span>), llmRerankAdapter],
 });
 
 <span class="tk-k">const</span> query = <span class="tk-s">"quick chocolate dessert"</span>;
@@ -989,7 +1005,7 @@ show(<span class="tk-s">`requiresFeatures: ["explanations"] -&gt; ${explained.mo
   providers: [
     createCallbackProviderAdapter({ providerId: <span class="tk-s">"voyage"</span>, rerank: () =&gt; { <span class="tk-k">throw</span> <span class="tk-k">new</span> <span class="tk-t">Error</span>(<span class="tk-s">"voyage 503"</span>); } }),
     crossEncoder(<span class="tk-s">"cohere"</span>),
-    llmReranker,
+    llmRerankAdapter,
   ],
 });
 <span class="tk-k">const</span> recovered = <span class="tk-k">await</span> flaky.rerank({ task: <span class="tk-s">"search.rerank"</span>, query, documents, topK: <span class="tk-n">3</span>, preference: <span class="tk-s">"cheapest"</span> });

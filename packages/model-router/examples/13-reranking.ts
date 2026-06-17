@@ -8,6 +8,7 @@
 import {
   createCallbackProviderAdapter,
   createStaticCapabilityCatalog,
+  llmReranker,
   ModelRouter,
   type ModelCapability,
 } from "@swoosh-dev/router";
@@ -54,19 +55,29 @@ const crossEncoder = (providerId: string) =>
       documents.map((doc, index) => ({ index, score: relevance(query, doc) })),
   });
 
-// LLM reranker: scores AND a natural-language reason per result.
-const llmReranker = createCallbackProviderAdapter({
+// LLM reranker: the llmReranker() helper turns a structured-output call into a
+// rerank callback (ordering + reasons). Here the "LLM" is faked offline by
+// reading the query/documents back out of the prompt the helper builds.
+const fakeStructuredLlm = ({ prompt }: { prompt: string }) => {
+  const query = (prompt.match(/Query: (.*)/)?.[1] ?? "").toLowerCase();
+  const terms = new Set(query.split(/\W+/).filter(Boolean));
+  const docs = [...prompt.matchAll(/^\[(\d+)\] (.*)$/gm)].map((m) => ({ index: Number(m[1]), text: m[2]! }));
+  const ranking = docs
+    .map((d) => ({ index: d.index, hits: d.text.toLowerCase().split(/\W+/).filter((w) => terms.has(w)).length }))
+    .filter((d) => d.hits > 0)
+    .sort((a, b) => b.hits - a.hits)
+    .map((d) => ({ index: d.index, reason: `matches ${d.hits} query term(s)` }));
+  return { ranking };
+};
+
+const llmRerankAdapter = createCallbackProviderAdapter({
   providerId: "openai",
-  rerank: ({ query, documents }) =>
-    documents.map((doc, index) => {
-      const score = relevance(query, doc);
-      return { index, score, reason: score ? `mentions ${score} of the query terms` : "off-topic" };
-    }),
+  rerank: llmReranker({ generateObject: fakeStructuredLlm }),
 });
 
 const router = new ModelRouter({
   catalog,
-  providers: [crossEncoder("cohere"), crossEncoder("voyage"), llmReranker],
+  providers: [crossEncoder("cohere"), crossEncoder("voyage"), llmRerankAdapter],
 });
 
 const query = "quick chocolate dessert";
@@ -106,7 +117,7 @@ const flaky = new ModelRouter({
   providers: [
     createCallbackProviderAdapter({ providerId: "voyage", rerank: () => { throw new Error("voyage 503"); } }),
     crossEncoder("cohere"),
-    llmReranker,
+    llmRerankAdapter,
   ],
 });
 const recovered = await flaky.rerank({ task: "search.rerank", query, documents, topK: 3, preference: "cheapest" });

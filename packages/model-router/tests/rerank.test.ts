@@ -4,6 +4,7 @@ import {
   ModelRouterError,
   createCallbackProviderAdapter,
   createStaticCapabilityCatalog,
+  llmReranker,
   type ModelCapability,
   type ProviderAdapter,
 } from "../src/index.ts";
@@ -96,6 +97,31 @@ test("cross-model fallback when the selected reranker fails", async () => {
 test("topK caps the results", async () => {
   const { results } = await router().rerank({ ...base, topK: 1, preference: "cheapest" });
   expect(results).toHaveLength(1);
+});
+
+test("llmReranker() turns structured output into scores + reasons", async () => {
+  // a fake structured LLM: return a ranking object directly
+  const adapter = createCallbackProviderAdapter({
+    providerId: "openai",
+    rerank: llmReranker({
+      generateObject: () => ({
+        ranking: [
+          { index: 2, reason: "most on-topic" },
+          { index: 0, reason: "somewhat related" },
+        ],
+      }),
+    }),
+  });
+  const r = new ModelRouter({
+    catalog: createStaticCapabilityCatalog([
+      cap("openai/gpt-5", { rerank: { maxDocuments: 100 }, features: ["explanations"], qualityScore: 0.9 }),
+    ]),
+    providers: [adapter],
+  });
+  const { results } = await r.rerank({ ...base, requiresFeatures: ["explanations"] });
+  expect(results.map((x) => x.index)).toEqual([2, 0, 1]); // ranked first, then unranked (score 0)
+  expect(results[0]!.reason).toBe("most on-topic");
+  expect(results[2]!.score).toBe(0); // doc 1 was omitted by the model
 });
 
 test("no eligible reranker -> ModelRouterError", async () => {

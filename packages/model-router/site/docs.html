@@ -189,6 +189,7 @@
       <a href="#access">Model access</a>
       <a href="#policies">Routing policies</a>
       <a href="#adapters">Provider adapters</a>
+      <a href="#reranking">Reranking</a>
     </div>
     <div class="group">
       <span>Reference</span>
@@ -586,12 +587,40 @@ createAiSdkProviderAdapter({
   models: { <span class="tk-s">"gpt-4o"</span>: openai(<span class="tk-s">"gpt-4o"</span>) },
   generateObject: (request) =&gt; generateObject(request <span class="tk-k">as never</span>),
 });</code></pre>
-      <div class="note"><b>Writing your own.</b> A <code>ProviderAdapter</code> is <code>{ providerId, name?, isAvailable?, generateObject?, generateText? }</code> where the methods return <code>Promise</code>s. The callback adapter is the easy path; implement the interface directly only if you need finer control.</div>
+      <div class="note"><b>Writing your own.</b> A <code>ProviderAdapter</code> is <code>{ providerId, name?, isAvailable?, generateObject?, generateText?, rerank? }</code> where the methods return <code>Promise</code>s. The callback adapter is the easy path; implement the interface directly only if you need finer control.</div>
+    </section>
+
+    <!-- RERANKING -->
+    <section class="doc" id="reranking">
+      <h2><span class="no">13</span> Reranking</h2>
+      <p class="lead">Reorder retrieved documents by relevance to a query. Reranking is a <em>task</em>, not a modality — you route on it, and the adapter decides whether a dedicated cross-encoder or an LLM does the work. Unlike embeddings, rerankers are stateless, so cross-model fallback is safe.</p>
+      <pre><code><span class="tk-k">const</span> { results } = <span class="tk-k">await</span> router.rerank({
+  task: <span class="tk-s">"search.rerank"</span>,
+  query,
+  documents,                          <span class="tk-c">// string[]</span>
+  topK: <span class="tk-n">8</span>,
+  requiresFeatures: [<span class="tk-s">"explanations"</span>],   <span class="tk-c">// route to a reason-capable reranker</span>
+  preference: <span class="tk-s">"cheapest"</span>,
+});
+<span class="tk-c">// results: { index, document, score, reason? }[] — sorted desc, capped at topK</span></code></pre>
+      <h3>Dedicated vs. LLM rerankers</h3>
+      <p>Dedicated cross-encoders (Cohere, Voyage, Jina) are cheap and fast but return <em>scores only</em>. An LLM reranker is pricier but can return a per-result <code>reason</code>. That difference is an intent: the <code>"explanations"</code> feature. Require it to route to a reason-capable reranker; omit it to get the cheapest dedicated one. <code>reason</code> is populated only when the chosen reranker supports it.</p>
+      <h3><code>llmReranker(options)</code> <span class="pill">@swoosh-dev/router</span></h3>
+      <p>Turns a structured-output call into a rerank callback — it asks the model to order the documents (with reasons) and maps that to scores. Declare <code>features: ["explanations"]</code> on the model's catalog entry so requests can route to it.</p>
+      <pre><code><span class="tk-k">import</span> { createCallbackProviderAdapter, llmReranker } <span class="tk-k">from</span> <span class="tk-s">"@swoosh-dev/router"</span>;
+
+<span class="tk-k">const</span> reranker = createCallbackProviderAdapter({
+  providerId: <span class="tk-s">"openai"</span>,
+  rerank: llmReranker({
+    generateObject: ({ prompt, schema }) =&gt; generateObject({ model, prompt, schema }),
+  }),
+});</code></pre>
+      <div class="note"><b>Batteries included.</b> <code>@swoosh-dev/capabilities</code> ships dedicated rerankers (Cohere, Voyage, Jina, mixedbread) in its dataset. Pricing differs by provider — Cohere bills per search (<code>rerank.pricePerSearchUsd</code>), Voyage/Jina per token — and cost-based routing handles both. Plan a rerank without executing via <code>router.planRerank(request)</code>.</div>
     </section>
 
     <!-- TYPES -->
     <section class="doc" id="types">
-      <h2><span class="no">13</span> Types</h2>
+      <h2><span class="no">14</span> Types</h2>
       <p>All types are re-exported from the package root. Key unions:</p>
       <table>
         <thead><tr><th>Type</th><th>Values / shape</th></tr></thead>
@@ -611,7 +640,7 @@ createAiSdkProviderAdapter({
 
     <!-- ERRORS -->
     <section class="doc" id="errors">
-      <h2><span class="no">14</span> Errors</h2>
+      <h2><span class="no">15</span> Errors</h2>
       <p>Failures reject the returned Promise with a <code>ModelRouterError</code>. Handle them with <code>try</code>/<code>catch</code> (or <code>.catch()</code>).</p>
       <pre><code><span class="tk-k">import</span> { ModelRouterError } <span class="tk-k">from</span> <span class="tk-s">"@swoosh-dev/router"</span>;
 

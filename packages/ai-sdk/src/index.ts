@@ -1,4 +1,8 @@
-import { createCallbackProviderAdapter, type ProviderAdapter } from "@swoosh-dev/router";
+import {
+  createCallbackProviderAdapter,
+  type ImagePart,
+  type ProviderAdapter,
+} from "@swoosh-dev/router";
 
 export interface AiSdkProviderOptions {
   readonly providerId: string;
@@ -15,12 +19,14 @@ export interface AiSdkProviderOptions {
     readonly schema?: unknown;
     readonly prompt?: string;
     readonly input?: unknown;
+    readonly images?: readonly ImagePart[];
     readonly metadata?: Record<string, unknown>;
   }) => Promise<unknown>;
   readonly generateText?: (request: {
     readonly model: unknown;
     readonly prompt?: string;
     readonly input?: unknown;
+    readonly images?: readonly ImagePart[];
     readonly metadata?: Record<string, unknown>;
   }) => Promise<string>;
   /**
@@ -55,6 +61,7 @@ export const createAiSdkProviderAdapter = (options: AiSdkProviderOptions): Provi
         schema: request.schema,
         prompt: request.prompt,
         input: request.input,
+        images: request.images,
         metadata: request.metadata,
       });
       return result && typeof result === "object" && "object" in result
@@ -67,6 +74,7 @@ export const createAiSdkProviderAdapter = (options: AiSdkProviderOptions): Provi
             model: resolveModel(options.models, request.model.modelId),
             prompt: request.prompt,
             input: request.input,
+            images: request.images,
             metadata: request.metadata,
           })
       : undefined,

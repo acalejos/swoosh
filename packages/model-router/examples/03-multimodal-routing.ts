@@ -20,23 +20,28 @@ const router = new ModelRouter({
   providers: ["google", "anthropic", "openai", "mistral", "local"].map((providerId) =>
     createCallbackProviderAdapter({
       providerId,
-      generateObject: () =>
-        ({
+      // images arrive as a first-class field — no metadata smuggling.
+      generateObject: (request) => {
+        console.log(`  ${providerId} received ${request.images?.length ?? 0} image(s)`);
+        return {
           merchant: "Blue Bottle Coffee",
           totalCents: 1250,
           lineItems: [
             { label: "Latte", cents: 650 },
             { label: "Croissant", cents: 600 },
           ],
-        }) satisfies Receipt,
+        } satisfies Receipt;
+      },
     }),
   ),
 });
 
-const result = await router.run<{ imageBase64: string }, Receipt>({
+const result = await router.generate<string, Receipt>({
   task: "receipt.extract",
-  input: { imageBase64: "(receipt photo)" },
+  input: "",
   prompt: "Extract the merchant, total, and line items from this receipt.",
+  schema: { type: "object" },
+  images: [{ data: "data:image/png;base64,(receipt photo)", mediaType: "image/png" }],
   inputModalities: ["text", "image"],
   requiresFeatures: ["structured_output"],
   preference: "cheapest",

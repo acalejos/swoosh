@@ -246,7 +246,11 @@ export class ModelRouter {
         );
         continue;
       }
-      const cost = estimatedCostUsd(capability, inputTokens, outputTokens);
+      // Per-search billers (Cohere) use a flat price; per-token billers
+      // (Voyage/Jina) fall back to token pricing.
+      const cost =
+        capability.rerank.pricePerSearchUsd ??
+        estimatedCostUsd(capability, inputTokens, outputTokens);
       if (
         cost !== undefined &&
         request.constraints?.maxCostUsd !== undefined &&

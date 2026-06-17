@@ -76,6 +76,15 @@ import { CapabilityOverride, ModelCapability, CapabilityCatalog } from '@swoosh-
  *     (Artificial Analysis, LMArena Elo, model-card GPQA/SWE-bench), never scraped.
  */
 declare const defaultOverrides: readonly CapabilityOverride[];
+/**
+ * Reranker models — not carried by models.dev, so these are full entries
+ * appended to the dataset (not merged onto a base). Dedicated cross-encoders
+ * return scores only (no `"explanations"`). Pricing differs by provider: Cohere
+ * bills per search (`rerank.pricePerSearchUsd`), Voyage/Jina/mixedbread bill per
+ * token (`pricing.inputPerMillionTokens`). `qualityScore` is a hand rank; refresh
+ * benchmark scores (e.g. MTEB rerank) from a cited source.
+ */
+declare const rerankerModels: readonly ModelCapability[];
 
 /** When the bundled snapshot was generated, and from where. */
 declare const meta: {
@@ -88,5 +97,5 @@ declare const capabilities: readonly ModelCapability[];
 /** A ready-to-use catalog backed by the bundled dataset — no network, no keys. */
 declare const defaultCatalog: () => CapabilityCatalog;
 
-export { capabilities, defaultCatalog, defaultOverrides, meta };
+export { capabilities, defaultCatalog, defaultOverrides, meta, rerankerModels };
 ```

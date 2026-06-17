@@ -1,9 +1,16 @@
 import type {
   LatencyClass,
   ModelCapability,
+  RankedModel,
   RoutingPolicy,
+  RoutingPolicyContext,
   RoutingPreference,
 } from "./types";
+
+const matchesId = (capability: ModelCapability, id: string): boolean =>
+  id.includes("/")
+    ? `${capability.providerId}/${capability.modelId}` === id
+    : capability.modelId === id;
 
 export const latencyWeight: Record<LatencyClass, number> = {
   fast: 3,
@@ -16,26 +23,47 @@ export interface ByBenchmarkOptions {
   readonly minimum?: number;
 }
 
+/** A score map keyed by `"providerId/modelId"` or bare `modelId`. */
+export type BenchmarkScores = Readonly<Record<string, number>>;
+
 /**
- * Rank candidates by a benchmark — highest first. `scorer` is either a benchmark
- * key (read from `capability.benchmarks[key]`) or a function that computes a
- * score from the capability, so you can blend several benchmarks:
+ * Where benchmark scores come from:
+ *   - a string  — key into `capability.benchmarks[key]`
+ *   - a function — compute/blend a score from the capability (can read live state)
+ *   - `{ resolve }` — a refreshable/async source, resolved once per plan, then
+ *     looked up by `"providerId/modelId"` (or bare `modelId`). Use this for live
+ *     leaderboards (e.g. an Elo feed) that aren't baked into the catalog.
+ */
+export type BenchmarkSource =
+  | string
+  | ((capability: ModelCapability) => number | undefined)
+  | { readonly resolve: () => BenchmarkScores | Promise<BenchmarkScores> };
+
+/**
+ * Rank candidates by a benchmark — highest first.
  *
  *     byBenchmark("swe_bench")
  *     byBenchmark((c) => 0.7 * (c.benchmarks?.swe_bench ?? 0) + 0.3 * (c.benchmarks?.gpqa ?? 0))
+ *     byBenchmark({ resolve: () => fetchLiveElo() })   // refreshable, not in the catalog
  *
  * Pass it as a request `preference`. Candidates with no score sort last (and are
  * dropped entirely when `minimum` is set).
  */
 export const byBenchmark = (
-  scorer: string | ((capability: ModelCapability) => number | undefined),
+  source: BenchmarkSource,
   options: ByBenchmarkOptions = {},
 ): RoutingPolicy => {
-  const score =
-    typeof scorer === "function"
-      ? scorer
-      : (capability: ModelCapability): number | undefined => capability.benchmarks?.[scorer];
-  return ({ candidates }) => {
+  return async ({ candidates }) => {
+    let score: (capability: ModelCapability) => number | undefined;
+    if (typeof source === "string") {
+      score = (capability) => capability.benchmarks?.[source];
+    } else if (typeof source === "function") {
+      score = source;
+    } else {
+      const map = await source.resolve();
+      score = (capability) =>
+        map[`${capability.providerId}/${capability.modelId}`] ?? map[capability.modelId];
+    }
     const scored = candidates.map((candidate) => ({ candidate, value: score(candidate.capability) }));
     const kept =
       options.minimum !== undefined
@@ -44,6 +72,44 @@ export const byBenchmark = (
     return [...kept]
       .sort((a, b) => (b.value ?? Number.NEGATIVE_INFINITY) - (a.value ?? Number.NEGATIVE_INFINITY))
       .map((s) => s.candidate);
+  };
+};
+
+/**
+ * Pin one or more models to the front of the ranking, in the given order — the
+ * fallback-band pattern. Any candidates not in `ids` follow, ranked by `base`
+ * (or left in catalog order). Ids are `"providerId/modelId"` or bare `modelId`.
+ *
+ *     preference: pin("openai/gpt-5")                       // prefer one, else fall through
+ *     preference: pin(["openai/gpt-5", "xai/grok-4.3"])     // primary, then a fallback band
+ */
+export const pin = (ids: string | readonly string[], base?: RoutingPolicy): RoutingPolicy => {
+  const wanted = typeof ids === "string" ? [ids] : ids;
+  return async (context: RoutingPolicyContext) => {
+    const pinned: RankedModel[] = [];
+    for (const id of wanted) {
+      const found = context.candidates.find(
+        (c) => matchesId(c.capability, id) && !pinned.includes(c),
+      );
+      if (found) pinned.push(found);
+    }
+    const rest = context.candidates.filter((c) => !pinned.includes(c));
+    const tail = base ? await base({ ...context, candidates: rest }) : rest;
+    return [...pinned, ...tail];
+  };
+};
+
+/**
+ * Cap selection at a quality ceiling — the "good enough, don't overpay" pattern.
+ * Keeps only candidates with `qualityScore <= max` (or all, if none qualify),
+ * then ranks them by `base` (default: highest quality under the cap).
+ */
+export const qualityCap = (max: number, base?: RoutingPolicy): RoutingPolicy => {
+  return async (context: RoutingPolicyContext) => {
+    const under = context.candidates.filter((c) => qualityScore(c.capability) <= max);
+    const pool = under.length > 0 ? under : context.candidates;
+    if (base) return base({ ...context, candidates: pool });
+    return [...pool].sort((a, b) => qualityScore(b.capability) - qualityScore(a.capability));
   };
 };
 

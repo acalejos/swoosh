@@ -12,7 +12,7 @@ import {
   normalizeModelsDevCatalog,
   type ModelCapability,
 } from "@swoosh-dev/router";
-import { defaultOverrides } from "../src/overrides";
+import { defaultOverrides, rerankerModels } from "../src/overrides";
 
 const DEFAULT_PROVIDERS = [
   "openai", "anthropic", "google", "google-vertex", "xai", "mistral", "groq",
@@ -30,7 +30,8 @@ const raw: unknown = process.env.MODELS_DEV_FILE
   : await (await fetch(url)).json();
 
 const base = normalizeModelsDevCatalog(raw).filter((m) => providers.has(m.providerId));
-const enriched = mergeCapabilities(base, defaultOverrides);
+// Rerankers aren't in models.dev — append the curated full entries.
+const enriched = [...mergeCapabilities(base, defaultOverrides), ...rerankerModels];
 
 // Sort deterministically so snapshot diffs stay readable.
 const models = [...enriched].sort((a, b) =>

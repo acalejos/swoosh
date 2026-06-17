@@ -5,7 +5,7 @@ import {
 } from "@swoosh-dev/router";
 import snapshot from "./capabilities.generated.json";
 
-export { defaultOverrides } from "./overrides";
+export { defaultOverrides, rerankerModels } from "./overrides";
 
 /** When the bundled snapshot was generated, and from where. */
 export const meta: { readonly source: string; readonly generatedAt: string; readonly count: number } = {

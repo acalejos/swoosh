@@ -123,17 +123,49 @@ var normalizeModelsDevCatalog = (catalog) => {
 };
 
 // src/policy.ts
+var matchesId = (capability, id) => id.includes("/") ? `${capability.providerId}/${capability.modelId}` === id : capability.modelId === id;
 var latencyWeight = {
   fast: 3,
   standard: 2,
   slow: 1
 };
-var byBenchmark = (scorer, options = {}) => {
-  const score = typeof scorer === "function" ? scorer : (capability) => capability.benchmarks?.[scorer];
-  return ({ candidates }) => {
+var byBenchmark = (source, options = {}) => {
+  return async ({ candidates }) => {
+    let score;
+    if (typeof source === "string") {
+      score = (capability) => capability.benchmarks?.[source];
+    } else if (typeof source === "function") {
+      score = source;
+    } else {
+      const map = await source.resolve();
+      score = (capability) => map[`${capability.providerId}/${capability.modelId}`] ?? map[capability.modelId];
+    }
     const scored = candidates.map((candidate) => ({ candidate, value: score(candidate.capability) }));
     const kept = options.minimum !== void 0 ? scored.filter((s) => s.value !== void 0 && s.value >= options.minimum) : scored;
     return [...kept].sort((a, b) => (b.value ?? Number.NEGATIVE_INFINITY) - (a.value ?? Number.NEGATIVE_INFINITY)).map((s) => s.candidate);
+  };
+};
+var pin = (ids, base) => {
+  const wanted = typeof ids === "string" ? [ids] : ids;
+  return async (context) => {
+    const pinned = [];
+    for (const id of wanted) {
+      const found = context.candidates.find(
+        (c) => matchesId(c.capability, id) && !pinned.includes(c)
+      );
+      if (found) pinned.push(found);
+    }
+    const rest = context.candidates.filter((c) => !pinned.includes(c));
+    const tail = base ? await base({ ...context, candidates: rest }) : rest;
+    return [...pinned, ...tail];
+  };
+};
+var qualityCap = (max, base) => {
+  return async (context) => {
+    const under = context.candidates.filter((c) => qualityScore(c.capability) <= max);
+    const pool = under.length > 0 ? under : context.candidates;
+    if (base) return base({ ...context, candidates: pool });
+    return [...pool].sort((a, b) => qualityScore(b.capability) - qualityScore(a.capability));
   };
 };
 var estimatedCostUsd = (capability, inputTokens, outputTokens) => {
@@ -470,7 +502,7 @@ var ModelRouter = class {
         );
         continue;
       }
-      const cost = estimatedCostUsd(capability, inputTokens, outputTokens);
+      const cost = capability.rerank.pricePerSearchUsd ?? estimatedCostUsd(capability, inputTokens, outputTokens);
       if (cost !== void 0 && request.constraints?.maxCostUsd !== void 0 && cost > request.constraints.maxCostUsd) {
         reject(rejected, capability, "Estimated cost exceeds policy.");
         continue;
@@ -666,6 +698,59 @@ var ModelRouter = class {
   }
 };
 
+// src/rerank.ts
+var defaultPrompt = (query, documents, explanations) => [
+  "Rank the documents by how well they answer the query, most relevant first.",
+  "Only include documents that are actually relevant; omit the rest.",
+  explanations ? "For each, give a one-sentence reason." : "",
+  "",
+  `Query: ${query}`,
+  "",
+  "Documents:",
+  ...documents.map((doc, index) => `[${index}] ${doc}`)
+].filter(Boolean).join("\n");
+var rankingSchema = (explanations) => ({
+  type: "object",
+  properties: {
+    ranking: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: { index: { type: "number" }, reason: { type: "string" } },
+        required: explanations ? ["index", "reason"] : ["index"],
+        additionalProperties: false
+      }
+    }
+  },
+  required: ["ranking"],
+  additionalProperties: false
+});
+var extractRanking = (raw) => {
+  const obj = raw && typeof raw === "object" && "object" in raw ? raw.object : raw;
+  const ranking = obj?.ranking;
+  if (!Array.isArray(ranking)) return [];
+  return ranking.filter(
+    (r) => !!r && typeof r === "object" && typeof r.index === "number"
+  ).map((r) => ({ index: r.index, reason: typeof r.reason === "string" ? r.reason : void 0 }));
+};
+var llmReranker = (options) => async (request) => {
+  const explanations = options.explanations !== false;
+  const prompt = options.prompt ? options.prompt(request.query, request.documents) : defaultPrompt(request.query, request.documents, explanations);
+  const raw = await options.generateObject({ prompt, schema: rankingSchema(explanations) });
+  const ranking = extractRanking(raw);
+  const byIndex = /* @__PURE__ */ new Map();
+  ranking.forEach((entry, position) => {
+    if (entry.index >= 0 && entry.index < request.documents.length && !byIndex.has(entry.index)) {
+      byIndex.set(entry.index, {
+        index: entry.index,
+        score: ranking.length - position,
+        reason: entry.reason
+      });
+    }
+  });
+  return request.documents.map((_, index) => byIndex.get(index) ?? { index, score: 0 });
+};
+
 // src/adapters.ts
 var createCallbackProviderAdapter = (options) => ({
   providerId: options.providerId,
@@ -706,4 +791,4 @@ var hasApiKey = (providerId, options = {}) => {
   });
 };
 
-export { ModelRouter, ModelRouterError, ModelsDevCapabilityCatalog, SchemaValidationError, StaticCapabilityCatalog, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, createCallbackProviderAdapter, createCapabilityCatalog, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, qualityScore, roundRobin, validateAgainstJsonSchema };
+export { ModelRouter, ModelRouterError, ModelsDevCapabilityCatalog, SchemaValidationError, StaticCapabilityCatalog, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, createCallbackProviderAdapter, createCapabilityCatalog, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, llmReranker, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, pin, qualityCap, qualityScore, roundRobin, validateAgainstJsonSchema };

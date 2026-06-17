@@ -47,6 +47,12 @@ interface ModelCapability {
         readonly maxDocuments?: number;
         readonly maxTokensPerDoc?: number;
         readonly maxQueryTokens?: number;
+        /**
+         * Flat price per rerank call (some providers bill per search, e.g. Cohere ~
+         * $2/1k searches → 0.002). When set, it's used as the cost for cost-based
+         * routing; otherwise per-token `pricing` is used (Voyage/Jina bill per token).
+         */
+        readonly pricePerSearchUsd?: number;
     };
 }
 interface TaskConstraints {
@@ -57,10 +63,25 @@ interface TaskConstraints {
     readonly preferredProviderIds?: readonly string[];
     readonly allowFallbacks?: boolean;
 }
+/** An image attached to a multimodal request. */
+interface ImageInput {
+    /** Base64 data, a `data:` URL, or a remote URL. */
+    readonly data: string;
+    /** e.g. `"image/png"` — recommended for base64/data URLs. */
+    readonly mediaType?: string;
+}
+/** A string (URL or `data:` URL) or a structured {@link ImageInput}. */
+type ImagePart = string | ImageInput;
 interface TaskRequest<Input = unknown> {
     readonly task: string;
     readonly input: Input;
     readonly inputModalities: readonly ModelModality[];
+    /**
+     * Image inputs for multimodal requests. A first-class slot so adapters read
+     * `request.images` instead of smuggling them through `metadata`. Declare
+     * `inputModalities: ["text", "image"]` so routing filters to vision models.
+     */
+    readonly images?: readonly ImagePart[];
     readonly outputModalities?: readonly ModelModality[];
     readonly estimatedInputTokens?: number;
     readonly estimatedOutputTokens?: number;
@@ -278,18 +299,45 @@ interface ByBenchmarkOptions {
     /** Drop candidates scoring below this (and any with no score). */
     readonly minimum?: number;
 }
+/** A score map keyed by `"providerId/modelId"` or bare `modelId`. */
+type BenchmarkScores = Readonly<Record<string, number>>;
 /**
- * Rank candidates by a benchmark — highest first. `scorer` is either a benchmark
- * key (read from `capability.benchmarks[key]`) or a function that computes a
- * score from the capability, so you can blend several benchmarks:
+ * Where benchmark scores come from:
+ *   - a string  — key into `capability.benchmarks[key]`
+ *   - a function — compute/blend a score from the capability (can read live state)
+ *   - `{ resolve }` — a refreshable/async source, resolved once per plan, then
+ *     looked up by `"providerId/modelId"` (or bare `modelId`). Use this for live
+ *     leaderboards (e.g. an Elo feed) that aren't baked into the catalog.
+ */
+type BenchmarkSource = string | ((capability: ModelCapability) => number | undefined) | {
+    readonly resolve: () => BenchmarkScores | Promise<BenchmarkScores>;
+};
+/**
+ * Rank candidates by a benchmark — highest first.
  *
  *     byBenchmark("swe_bench")
  *     byBenchmark((c) => 0.7 * (c.benchmarks?.swe_bench ?? 0) + 0.3 * (c.benchmarks?.gpqa ?? 0))
+ *     byBenchmark({ resolve: () => fetchLiveElo() })   // refreshable, not in the catalog
  *
  * Pass it as a request `preference`. Candidates with no score sort last (and are
  * dropped entirely when `minimum` is set).
  */
-declare const byBenchmark: (scorer: string | ((capability: ModelCapability) => number | undefined), options?: ByBenchmarkOptions) => RoutingPolicy;
+declare const byBenchmark: (source: BenchmarkSource, options?: ByBenchmarkOptions) => RoutingPolicy;
+/**
+ * Pin one or more models to the front of the ranking, in the given order — the
+ * fallback-band pattern. Any candidates not in `ids` follow, ranked by `base`
+ * (or left in catalog order). Ids are `"providerId/modelId"` or bare `modelId`.
+ *
+ *     preference: pin("openai/gpt-5")                       // prefer one, else fall through
+ *     preference: pin(["openai/gpt-5", "xai/grok-4.3"])     // primary, then a fallback band
+ */
+declare const pin: (ids: string | readonly string[], base?: RoutingPolicy) => RoutingPolicy;
+/**
+ * Cap selection at a quality ceiling — the "good enough, don't overpay" pattern.
+ * Keeps only candidates with `qualityScore <= max` (or all, if none qualify),
+ * then ranks them by `base` (default: highest quality under the cap).
+ */
+declare const qualityCap: (max: number, base?: RoutingPolicy) => RoutingPolicy;
 declare const estimatedCostUsd: (capability: ModelCapability, inputTokens: number, outputTokens: number) => number | undefined;
 declare const qualityScore: (capability: ModelCapability) => number;
 declare const namedPolicy: (preference: RoutingPreference, preferredProviderIds?: readonly string[]) => RoutingPolicy;
@@ -400,6 +448,35 @@ declare class ModelRouter {
     private executePlan;
 }
 
+interface LlmRerankerOptions {
+    /**
+     * A structured-output call to an LLM: given a `prompt` and a JSON `schema`,
+     * return the parsed object (AI-SDK-style `{ object }` wrappers are unwrapped).
+     */
+    readonly generateObject: (args: {
+        prompt: string;
+        schema: unknown;
+    }) => Promise<unknown> | unknown;
+    /** Override the prompt (e.g. to inject ranking criteria). */
+    readonly prompt?: (query: string, documents: readonly string[]) => string;
+    /** Ask for a one-line reason per result (default: true → declares "explanations"). */
+    readonly explanations?: boolean;
+}
+/**
+ * Turn a structured-output (`generateObject`) call into a rerank callback: it
+ * asks the model to order the documents — with optional per-result reasons — and
+ * maps that ordering to descending scores (unranked documents score 0). Use it
+ * as the `rerank` of a callback adapter so any LLM serves reranking; declare the
+ * `"explanations"` feature on its catalog entry when reasons are on (the default)
+ * so `requiresFeatures: ["explanations"]` routes to it.
+ *
+ *     createCallbackProviderAdapter({
+ *       providerId: "openai",
+ *       rerank: llmReranker({ generateObject: ({ prompt, schema }) => ai.generateObject({ model, prompt, schema }) }),
+ *     })
+ */
+declare const llmReranker: (options: LlmRerankerOptions) => (request: ProviderRerankRequest) => Promise<readonly RerankScore[]>;
+
 /**
  * A tiny, dependency-free validator for the common subset of JSON Schema that
  * structured-output requests use. It is intentionally NOT a full JSON Schema
@@ -469,4 +546,4 @@ declare const apiKeyEnvVarsFor: (providerId: string) => readonly string[];
  */
 declare const hasApiKey: (providerId: string, options?: HasApiKeyOptions) => boolean;
 
-export { type ByBenchmarkOptions, type CallbackProviderOptions, type CapabilityCatalog, type CapabilityOverride, type GenerateImageRequest, type GenerateObjectRequest, type GenerateRequest, type GenerateTextRequest, type GeneratedImage, type HasApiKeyOptions, type LatencyClass, type LoadBalanceOptions, type LoadBalanceStrategy, type ModelCapability, type ModelFeature, type ModelLimits, type ModelModality, type ModelPricing, ModelRouter, ModelRouterError, type ModelRouterOptions, ModelsDevCapabilityCatalog, type ProviderAdapter, type ProviderGenerateImageRequest, type ProviderGenerateObjectRequest, type ProviderGenerateTextRequest, type ProviderRerankRequest, type RankedModel, type RejectedModel, type RerankRequest, type RerankResult, type RerankScore, type RerankedDocument, type RoutePlan, type RouterAttempt, type RouterRunResult, type RoutingPolicy, type RoutingPolicyContext, type RoutingPreference, SchemaValidationError, StaticCapabilityCatalog, type TaskConstraints, type TaskRequest, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, createCallbackProviderAdapter, createCapabilityCatalog, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, qualityScore, roundRobin, validateAgainstJsonSchema };
+export { type BenchmarkScores, type BenchmarkSource, type ByBenchmarkOptions, type CallbackProviderOptions, type CapabilityCatalog, type CapabilityOverride, type GenerateImageRequest, type GenerateObjectRequest, type GenerateRequest, type GenerateTextRequest, type GeneratedImage, type HasApiKeyOptions, type ImageInput, type ImagePart, type LatencyClass, type LlmRerankerOptions, type LoadBalanceOptions, type LoadBalanceStrategy, type ModelCapability, type ModelFeature, type ModelLimits, type ModelModality, type ModelPricing, ModelRouter, ModelRouterError, type ModelRouterOptions, ModelsDevCapabilityCatalog, type ProviderAdapter, type ProviderGenerateImageRequest, type ProviderGenerateObjectRequest, type ProviderGenerateTextRequest, type ProviderRerankRequest, type RankedModel, type RejectedModel, type RerankRequest, type RerankResult, type RerankScore, type RerankedDocument, type RoutePlan, type RouterAttempt, type RouterRunResult, type RoutingPolicy, type RoutingPolicyContext, type RoutingPreference, SchemaValidationError, StaticCapabilityCatalog, type TaskConstraints, type TaskRequest, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, createCallbackProviderAdapter, createCapabilityCatalog, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, llmReranker, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, pin, qualityCap, qualityScore, roundRobin, validateAgainstJsonSchema };

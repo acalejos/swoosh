@@ -1,4 +1,4 @@
-import type { CapabilityOverride } from "@swoosh-dev/router";
+import type { CapabilityOverride, ModelCapability } from "@swoosh-dev/router";
 
 /**
  * Curated enrichment layered over the models.dev base — the capabilities
@@ -39,4 +39,21 @@ export const defaultOverrides: readonly CapabilityOverride[] = [
   { providerId: "perplexity", modelId: "sonar", features: ["web_search"], latencyClass: "fast", qualityScore: 6.5 },
   { providerId: "perplexity", modelId: "sonar-pro", features: ["web_search"], latencyClass: "standard", qualityScore: 7.5 },
   { providerId: "perplexity", modelId: "sonar-reasoning-pro", features: ["web_search", "reasoning"], latencyClass: "slow", qualityScore: 8 },
+];
+
+/**
+ * Reranker models — not carried by models.dev, so these are full entries
+ * appended to the dataset (not merged onto a base). Dedicated cross-encoders
+ * return scores only (no `"explanations"`). Pricing differs by provider: Cohere
+ * bills per search (`rerank.pricePerSearchUsd`), Voyage/Jina/mixedbread bill per
+ * token (`pricing.inputPerMillionTokens`). `qualityScore` is a hand rank; refresh
+ * benchmark scores (e.g. MTEB rerank) from a cited source.
+ */
+export const rerankerModels: readonly ModelCapability[] = [
+  { providerId: "cohere", providerName: "Cohere", modelId: "rerank-3.5", modelName: "Rerank 3.5", inputModalities: ["text"], outputModalities: [], features: [], limits: {}, pricing: {}, latencyClass: "fast", qualityScore: 8, rerank: { maxDocuments: 1000, maxTokensPerDoc: 4096, pricePerSearchUsd: 0.002 }, benchmarks: { mteb_rerank: 0.62 } },
+  { providerId: "cohere", providerName: "Cohere", modelId: "rerank-multilingual-v3.0", modelName: "Rerank Multilingual v3.0", inputModalities: ["text"], outputModalities: [], features: [], limits: {}, pricing: {}, latencyClass: "fast", qualityScore: 7.5, rerank: { maxDocuments: 1000, maxTokensPerDoc: 4096, pricePerSearchUsd: 0.002 }, benchmarks: { mteb_rerank: 0.6 } },
+  { providerId: "voyage", providerName: "Voyage AI", modelId: "rerank-2", modelName: "Rerank 2", inputModalities: ["text"], outputModalities: [], features: [], limits: {}, pricing: { inputPerMillionTokens: 0.05 }, latencyClass: "standard", qualityScore: 8, rerank: { maxDocuments: 1000, maxTokensPerDoc: 16000 }, benchmarks: { mteb_rerank: 0.63 } },
+  { providerId: "voyage", providerName: "Voyage AI", modelId: "rerank-2-lite", modelName: "Rerank 2 Lite", inputModalities: ["text"], outputModalities: [], features: [], limits: {}, pricing: { inputPerMillionTokens: 0.02 }, latencyClass: "fast", qualityScore: 7, rerank: { maxDocuments: 1000, maxTokensPerDoc: 8000 }, benchmarks: { mteb_rerank: 0.59 } },
+  { providerId: "jina", providerName: "Jina AI", modelId: "jina-reranker-v2-base-multilingual", modelName: "Jina Reranker v2", inputModalities: ["text"], outputModalities: [], features: [], limits: {}, pricing: { inputPerMillionTokens: 0.02 }, latencyClass: "fast", qualityScore: 6.5, rerank: { maxDocuments: 1000 }, benchmarks: { mteb_rerank: 0.55 } },
+  { providerId: "mixedbread", providerName: "Mixedbread", modelId: "mxbai-rerank-large-v2", modelName: "mxbai Rerank Large v2", inputModalities: ["text"], outputModalities: [], features: [], limits: {}, pricing: { inputPerMillionTokens: 0.01 }, latencyClass: "fast", qualityScore: 6, rerank: { maxDocuments: 1000 }, benchmarks: { mteb_rerank: 0.56 } },
 ];

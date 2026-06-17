@@ -7,6 +7,8 @@ export {
   type GenerateObjectRequest,
   type GenerateRequest,
   type GenerateTextRequest,
+  type ImageInput,
+  type ImagePart,
   type LatencyClass,
   type ModelCapability,
   type ModelFeature,
@@ -47,7 +49,11 @@ export {
   byBenchmark,
   estimatedCostUsd,
   namedPolicy,
+  pin,
+  qualityCap,
   qualityScore,
+  type BenchmarkScores,
+  type BenchmarkSource,
   type ByBenchmarkOptions,
 } from "./policy";
 export {
@@ -57,6 +63,7 @@ export {
   type LoadBalanceStrategy,
 } from "./balance";
 export { ModelRouter, type ModelRouterOptions } from "./router";
+export { llmReranker, type LlmRerankerOptions } from "./rerank";
 export { looksLikeJsonSchema, validateAgainstJsonSchema } from "./schema";
 export {
   createCallbackProviderAdapter,
