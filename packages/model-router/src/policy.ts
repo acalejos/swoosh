@@ -113,6 +113,74 @@ export const qualityCap = (max: number, base?: RoutingPolicy): RoutingPolicy => 
   };
 };
 
+export interface ByCoverageOptions {
+  /** Minimum number of matching tags to qualify (default 1). */
+  readonly minimum?: number;
+}
+
+/**
+ * Soft tag matching — rank candidates by how many of `tags` their `features`
+ * cover, most overlap first; drop those below `minimum` (default 1). Unlike
+ * `requiresFeatures` (hard AND), this is "match any, rank by relevance" — the
+ * right shape for routing over coverage/domain tags (e.g. knowledge connectors).
+ *
+ *     preference: byCoverage(["medical", "current"])   // ranks medical+current first, keeps medical-only
+ */
+export const byCoverage = (
+  tags: readonly string[],
+  options: ByCoverageOptions = {},
+): RoutingPolicy => {
+  const want = new Set(tags);
+  const minimum = options.minimum ?? 1;
+  return ({ candidates }) =>
+    candidates
+      .map((candidate) => ({
+        candidate,
+        overlap: candidate.capability.features.filter((f) => want.has(f)).length,
+      }))
+      .filter((s) => s.overlap >= minimum)
+      .sort((a, b) => b.overlap - a.overlap || b.candidate.score - a.candidate.score)
+      .map((s) => s.candidate);
+};
+
+export interface StickyOptions {
+  /**
+   * How much higher a challenger's score must be to justify switching off the
+   * warm model (and eating a prefix-cache miss). Default 0 = switch on any
+   * improvement; raise it to bias toward cache reuse.
+   */
+  readonly margin?: number;
+}
+
+/**
+ * Prefix-cache–aware stickiness: keep the currently-active model on top (its
+ * prompt prefix is already cached) unless another candidate beats it by more
+ * than `margin`. The harness passes the model it used last step; switching
+ * models cold-starts the cache, so this trades a small quality delta for cost/
+ * latency. `currentModelId` is `"providerId/modelId"` or a bare `modelId`.
+ *
+ *     preference: sticky(lastUsedModelId, byBenchmark("swe_bench"), { margin: 0.05 })
+ */
+export const sticky = (
+  currentModelId: string | undefined,
+  base?: RoutingPolicy,
+  options: StickyOptions = {},
+): RoutingPolicy => {
+  const margin = options.margin ?? 0;
+  return async (context: RoutingPolicyContext) => {
+    const ranked = base
+      ? await base(context)
+      : [...context.candidates].sort((a, b) => b.score - a.score);
+    if (!currentModelId || ranked.length === 0) return ranked;
+    const current = ranked.find((r) => matchesId(r.capability, currentModelId));
+    if (!current) return ranked; // current model isn't a candidate this step
+    const top = ranked[0]!;
+    // Worth switching only if the best beats the warm model by more than margin.
+    if (top !== current && top.score - current.score > margin) return ranked;
+    return [current, ...ranked.filter((r) => r !== current)];
+  };
+};
+
 export const estimatedCostUsd = (
   capability: ModelCapability,
   inputTokens: number,

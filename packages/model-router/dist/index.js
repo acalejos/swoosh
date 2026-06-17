@@ -168,6 +168,26 @@ var qualityCap = (max, base) => {
     return [...pool].sort((a, b) => qualityScore(b.capability) - qualityScore(a.capability));
   };
 };
+var byCoverage = (tags, options = {}) => {
+  const want = new Set(tags);
+  const minimum = options.minimum ?? 1;
+  return ({ candidates }) => candidates.map((candidate) => ({
+    candidate,
+    overlap: candidate.capability.features.filter((f) => want.has(f)).length
+  })).filter((s) => s.overlap >= minimum).sort((a, b) => b.overlap - a.overlap || b.candidate.score - a.candidate.score).map((s) => s.candidate);
+};
+var sticky = (currentModelId, base, options = {}) => {
+  const margin = options.margin ?? 0;
+  return async (context) => {
+    const ranked = base ? await base(context) : [...context.candidates].sort((a, b) => b.score - a.score);
+    if (!currentModelId || ranked.length === 0) return ranked;
+    const current = ranked.find((r) => matchesId(r.capability, currentModelId));
+    if (!current) return ranked;
+    const top = ranked[0];
+    if (top !== current && top.score - current.score > margin) return ranked;
+    return [current, ...ranked.filter((r) => r !== current)];
+  };
+};
 var estimatedCostUsd = (capability, inputTokens, outputTokens) => {
   const input = capability.pricing.inputPerMillionTokens;
   const output = capability.pricing.outputPerMillionTokens;
@@ -791,4 +811,4 @@ var hasApiKey = (providerId, options = {}) => {
   });
 };
 
-export { ModelRouter, ModelRouterError, ModelsDevCapabilityCatalog, SchemaValidationError, StaticCapabilityCatalog, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, createCallbackProviderAdapter, createCapabilityCatalog, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, llmReranker, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, pin, qualityCap, qualityScore, roundRobin, validateAgainstJsonSchema };
+export { ModelRouter, ModelRouterError, ModelsDevCapabilityCatalog, SchemaValidationError, StaticCapabilityCatalog, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, byCoverage, createCallbackProviderAdapter, createCapabilityCatalog, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, llmReranker, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, pin, qualityCap, qualityScore, roundRobin, sticky, validateAgainstJsonSchema };

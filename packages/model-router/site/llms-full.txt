@@ -804,6 +804,37 @@ declare const pin: (ids: string | readonly string[], base?: RoutingPolicy) => Ro
  * then ranks them by `base` (default: highest quality under the cap).
  */
 declare const qualityCap: (max: number, base?: RoutingPolicy) => RoutingPolicy;
+interface ByCoverageOptions {
+    /** Minimum number of matching tags to qualify (default 1). */
+    readonly minimum?: number;
+}
+/**
+ * Soft tag matching — rank candidates by how many of `tags` their `features`
+ * cover, most overlap first; drop those below `minimum` (default 1). Unlike
+ * `requiresFeatures` (hard AND), this is "match any, rank by relevance" — the
+ * right shape for routing over coverage/domain tags (e.g. knowledge connectors).
+ *
+ *     preference: byCoverage(["medical", "current"])   // ranks medical+current first, keeps medical-only
+ */
+declare const byCoverage: (tags: readonly string[], options?: ByCoverageOptions) => RoutingPolicy;
+interface StickyOptions {
+    /**
+     * How much higher a challenger's score must be to justify switching off the
+     * warm model (and eating a prefix-cache miss). Default 0 = switch on any
+     * improvement; raise it to bias toward cache reuse.
+     */
+    readonly margin?: number;
+}
+/**
+ * Prefix-cache–aware stickiness: keep the currently-active model on top (its
+ * prompt prefix is already cached) unless another candidate beats it by more
+ * than `margin`. The harness passes the model it used last step; switching
+ * models cold-starts the cache, so this trades a small quality delta for cost/
+ * latency. `currentModelId` is `"providerId/modelId"` or a bare `modelId`.
+ *
+ *     preference: sticky(lastUsedModelId, byBenchmark("swe_bench"), { margin: 0.05 })
+ */
+declare const sticky: (currentModelId: string | undefined, base?: RoutingPolicy, options?: StickyOptions) => RoutingPolicy;
 declare const estimatedCostUsd: (capability: ModelCapability, inputTokens: number, outputTokens: number) => number | undefined;
 declare const qualityScore: (capability: ModelCapability) => number;
 declare const namedPolicy: (preference: RoutingPreference, preferredProviderIds?: readonly string[]) => RoutingPolicy;
@@ -1012,7 +1043,7 @@ declare const apiKeyEnvVarsFor: (providerId: string) => readonly string[];
  */
 declare const hasApiKey: (providerId: string, options?: HasApiKeyOptions) => boolean;
 
-export { type BenchmarkScores, type BenchmarkSource, type ByBenchmarkOptions, type CallbackProviderOptions, type CapabilityCatalog, type CapabilityOverride, type GenerateImageRequest, type GenerateObjectRequest, type GenerateRequest, type GenerateTextRequest, type GeneratedImage, type HasApiKeyOptions, type ImageInput, type ImagePart, type LatencyClass, type LlmRerankerOptions, type LoadBalanceOptions, type LoadBalanceStrategy, type ModelCapability, type ModelFeature, type ModelLimits, type ModelModality, type ModelPricing, ModelRouter, ModelRouterError, type ModelRouterOptions, ModelsDevCapabilityCatalog, type ProviderAdapter, type ProviderGenerateImageRequest, type ProviderGenerateObjectRequest, type ProviderGenerateTextRequest, type ProviderRerankRequest, type RankedModel, type RejectedModel, type RerankRequest, type RerankResult, type RerankScore, type RerankedDocument, type RoutePlan, type RouterAttempt, type RouterRunResult, type RoutingPolicy, type RoutingPolicyContext, type RoutingPreference, SchemaValidationError, StaticCapabilityCatalog, type TaskConstraints, type TaskRequest, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, createCallbackProviderAdapter, createCapabilityCatalog, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, llmReranker, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, pin, qualityCap, qualityScore, roundRobin, validateAgainstJsonSchema };
+export { type BenchmarkScores, type BenchmarkSource, type ByBenchmarkOptions, type ByCoverageOptions, type CallbackProviderOptions, type CapabilityCatalog, type CapabilityOverride, type GenerateImageRequest, type GenerateObjectRequest, type GenerateRequest, type GenerateTextRequest, type GeneratedImage, type HasApiKeyOptions, type ImageInput, type ImagePart, type LatencyClass, type LlmRerankerOptions, type LoadBalanceOptions, type LoadBalanceStrategy, type ModelCapability, type ModelFeature, type ModelLimits, type ModelModality, type ModelPricing, ModelRouter, ModelRouterError, type ModelRouterOptions, ModelsDevCapabilityCatalog, type ProviderAdapter, type ProviderGenerateImageRequest, type ProviderGenerateObjectRequest, type ProviderGenerateTextRequest, type ProviderRerankRequest, type RankedModel, type RejectedModel, type RerankRequest, type RerankResult, type RerankScore, type RerankedDocument, type RoutePlan, type RouterAttempt, type RouterRunResult, type RoutingPolicy, type RoutingPolicyContext, type RoutingPreference, SchemaValidationError, StaticCapabilityCatalog, type StickyOptions, type TaskConstraints, type TaskRequest, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, byCoverage, createCallbackProviderAdapter, createCapabilityCatalog, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, llmReranker, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, pin, qualityCap, qualityScore, roundRobin, sticky, validateAgainstJsonSchema };
 ```
 
 

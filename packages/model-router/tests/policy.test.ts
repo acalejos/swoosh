@@ -2,10 +2,12 @@ import { test, expect } from "bun:test";
 import {
   ModelRouter,
   byBenchmark,
+  byCoverage,
   createCallbackProviderAdapter,
   createStaticCapabilityCatalog,
   pin,
   qualityCap,
+  sticky,
   type ModelCapability,
 } from "../src/index.ts";
 
@@ -61,4 +63,34 @@ test("pin() forces a model to the front, then a fallback band", async () => {
 test("qualityCap() picks the best model under the ceiling", async () => {
   const plan = await router.plan(req(qualityCap(0.7)));
   expect(plan.selected.capability.modelId).toBe("b"); // 0.6 is the best <= 0.7 (a=0.9 excluded)
+});
+
+test("byCoverage() soft-matches tags and ranks by overlap (vs hard-AND requiresFeatures)", async () => {
+  const catalog2 = createStaticCapabilityCatalog([
+    cap("openfda", { qualityScore: 0.7 }),       // medical + current
+    cap("pubmed", { qualityScore: 0.8 }),        // medical only
+    cap("arxiv", { qualityScore: 0.9 }),         // academic only
+  ]);
+  // attach coverage tags via features
+  const tagged = [
+    { ...(await catalog2.listCapabilities())[0]!, features: ["medical", "current"] },
+    { ...(await catalog2.listCapabilities())[1]!, features: ["medical"] },
+    { ...(await catalog2.listCapabilities())[2]!, features: ["academic"] },
+  ];
+  const r = new ModelRouter({
+    catalog: createStaticCapabilityCatalog(tagged),
+    providers: [createCallbackProviderAdapter({ providerId: "p" })],
+  });
+  const plan = await r.plan(req(byCoverage(["medical", "current"])));
+  const ids = [plan.selected, ...plan.fallbacks].map((r) => r.capability.modelId);
+  expect(ids).toEqual(["openfda", "pubmed"]); // 2 tags, then 1 tag
+  expect(ids).not.toContain("arxiv"); // 0 tags — policy-dropped (not in selected/fallbacks)
+});
+
+test("sticky() keeps the warm model unless a challenger beats it by margin", async () => {
+  // base = best_quality: a(0.9) > b(0.6) > c(0.3). Current = c.
+  const stay = await router.plan(req(sticky("p/c", byBenchmark("swe_bench"), { margin: 1 })));
+  expect(stay.selected.capability.modelId).toBe("c"); // huge margin → stay warm despite worse score
+  const switchAway = await router.plan(req(sticky("p/c", byBenchmark("swe_bench"), { margin: 0 })));
+  expect(switchAway.selected.capability.modelId).toBe("b"); // margin 0 → take the better one (swe_bench: b=0.9)
 });

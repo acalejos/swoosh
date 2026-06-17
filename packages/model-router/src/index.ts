@@ -47,14 +47,18 @@ export {
 } from "./catalog";
 export {
   byBenchmark,
+  byCoverage,
   estimatedCostUsd,
   namedPolicy,
   pin,
   qualityCap,
   qualityScore,
+  sticky,
   type BenchmarkScores,
   type BenchmarkSource,
   type ByBenchmarkOptions,
+  type ByCoverageOptions,
+  type StickyOptions,
 } from "./policy";
 export {
   loadBalance,
