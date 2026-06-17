@@ -91,6 +91,16 @@ export interface ImageInput {
 /** A string (URL or `data:` URL) or a structured {@link ImageInput}. */
 export type ImagePart = string | ImageInput;
 
+/** Retry the *same* route before falling through to the next (per-call, opt-in). */
+export interface RetryOptions {
+  /** Total tries per route, including the first. */
+  readonly attempts: number;
+  /** Base backoff in ms; grows exponentially (`backoffMs * 2 ** tryIndex`). */
+  readonly backoffMs?: number;
+  /** Decide whether an error is retryable. Defaults to retrying all errors. */
+  readonly retryOn?: (error: unknown) => boolean;
+}
+
 export interface TaskRequest<Input = unknown> {
   readonly task: string;
   readonly input: Input;
@@ -109,6 +119,10 @@ export interface TaskRequest<Input = unknown> {
   readonly requiresAnyFeatures?: readonly ModelFeature[];
   readonly preference?: RoutingPreference | RoutingPolicy;
   readonly constraints?: TaskConstraints;
+  /** Retry the same route (with backoff) before falling through to the next. */
+  readonly retry?: RetryOptions;
+  /** Per-attempt timeout (ms); a slow route is failed and the router falls through. */
+  readonly timeout?: number;
 }
 
 export interface GenerateObjectRequest<Input = unknown> extends TaskRequest<Input> {
@@ -249,6 +263,10 @@ export interface RerankRequest<Input = unknown> {
   readonly requiresAnyFeatures?: readonly ModelFeature[];
   readonly preference?: RoutingPreference | RoutingPolicy;
   readonly constraints?: TaskConstraints;
+  /** Retry the same route (with backoff) before falling through to the next. */
+  readonly retry?: RetryOptions;
+  /** Per-attempt timeout (ms); a slow route is failed and the router falls through. */
+  readonly timeout?: number;
   readonly estimatedInputTokens?: number;
   readonly estimatedOutputTokens?: number;
   readonly metadata?: Record<string, unknown>;

@@ -13,6 +13,7 @@ import {
   type RerankedDocument,
   type RerankRequest,
   type RerankResult,
+  type RetryOptions,
   type RoutePlan,
   type RouterAttempt,
   type RouterRunResult,
@@ -36,6 +37,18 @@ const providerAvailable = (adapter: ProviderAdapter | undefined): boolean =>
 const reject = (rejected: RejectedModel[], capability: ModelCapability, reason: string): void => {
   rejected.push({ providerId: capability.providerId, modelId: capability.modelId, reason });
 };
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Race a pending op against a timeout. The underlying call is not cancelled
+// (adapters take no signal) — it just stops blocking the route.
+const withTimeout = <T>(pending: Promise<T>, ms: number): Promise<T> =>
+  Promise.race([
+    pending,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new ModelRouterError(`Timed out after ${ms}ms.`)), ms),
+    ),
+  ]);
 
 export interface ModelRouterOptions {
   readonly catalog: CapabilityCatalog;
@@ -304,7 +317,7 @@ export class ModelRouter {
     const topK = request.topK ?? request.documents.length;
     const run = await this.executePlan<readonly RerankedDocument[]>(
       plan,
-      request.task,
+      request,
       (adapter, capability) =>
         adapter.rerank
           ? adapter
@@ -368,7 +381,7 @@ export class ModelRouter {
     if (wantsImage) {
       return this.executePlan<Output>(
         plan,
-        request.task,
+        request,
         (adapter, capability) =>
           adapter.generateImage
             ? (adapter.generateImage<Input>({
@@ -383,7 +396,7 @@ export class ModelRouter {
     if (request.schema !== undefined) {
       return this.executePlan<Output>(
         plan,
-        request.task,
+        request,
         (adapter, capability) =>
           adapter.generateObject
             ? this.generateValidatedObject<Input, Output>(adapter, capability, request)
@@ -394,7 +407,7 @@ export class ModelRouter {
 
     return this.executePlan<Output>(
       plan,
-      request.task,
+      request,
       (adapter, capability) =>
         adapter.generateText
           ? (adapter.generateText<Input>({
@@ -442,7 +455,7 @@ export class ModelRouter {
     const plan = await this.plan(request);
     return this.executePlan<Output>(
       plan,
-      request.task,
+      request,
       (adapter, capability) =>
         adapter.generateObject
           ? this.generateValidatedObject<Input, Output>(adapter, capability, request)
@@ -457,7 +470,7 @@ export class ModelRouter {
     const plan = await this.plan(request);
     return this.executePlan<string>(
       plan,
-      request.task,
+      request,
       (adapter, capability) =>
         adapter.generateText
           ? adapter.generateText<Input>({ ...request, model: capability })
@@ -478,7 +491,7 @@ export class ModelRouter {
 
   private async executePlan<Output>(
     plan: RoutePlan,
-    task: string,
+    request: { readonly task: string; readonly retry?: RetryOptions; readonly timeout?: number },
     invoke: (
       adapter: ProviderAdapter,
       capability: ModelCapability,
@@ -487,37 +500,36 @@ export class ModelRouter {
   ): Promise<RouterRunResult<Output>> {
     const routes = [plan.selected, ...plan.fallbacks];
     const attempts: RouterAttempt[] = [];
+    const maxTries = Math.max(1, request.retry?.attempts ?? 1);
 
     for (const route of routes) {
       const adapter = this.providers.get(route.capability.providerId);
-      const pending = adapter ? invoke(adapter, route.capability) : undefined;
-      if (!pending) {
-        attempts.push({
-          providerId: route.capability.providerId,
-          modelId: route.capability.modelId,
-          ok: false,
-          error: unsupportedReason,
-        });
-        continue;
-      }
-      try {
-        const output = await pending;
-        attempts.push({
-          providerId: route.capability.providerId,
-          modelId: route.capability.modelId,
-          ok: true,
-        });
-        return { output, plan, attempts };
-      } catch (cause) {
-        attempts.push({
-          providerId: route.capability.providerId,
-          modelId: route.capability.modelId,
-          ok: false,
-          error: cause instanceof Error ? cause.message : String(cause),
-        });
+      const { providerId, modelId } = route.capability;
+      // retry the SAME route (with backoff) before falling through to the next
+      for (let tryIndex = 0; tryIndex < maxTries; tryIndex++) {
+        const pending = adapter ? invoke(adapter, route.capability) : undefined;
+        if (!pending) {
+          attempts.push({ providerId, modelId, ok: false, error: unsupportedReason });
+          break; // adapter can't perform this op — next route, don't retry
+        }
+        try {
+          const output = await (request.timeout ? withTimeout(pending, request.timeout) : pending);
+          attempts.push({ providerId, modelId, ok: true });
+          return { output, plan, attempts };
+        } catch (cause) {
+          attempts.push({
+            providerId,
+            modelId,
+            ok: false,
+            error: cause instanceof Error ? cause.message : String(cause),
+          });
+          const canRetry = tryIndex < maxTries - 1 && (request.retry?.retryOn?.(cause) ?? true);
+          if (!canRetry) break; // out of retries (or non-retryable) — next route
+          if (request.retry?.backoffMs) await sleep(request.retry.backoffMs * 2 ** tryIndex);
+        }
       }
     }
 
-    throw new ModelRouterError(`All model routes failed for task "${task}".`);
+    throw new ModelRouterError(`All model routes failed for task "${request.task}".`);
   }
 }

@@ -190,6 +190,7 @@
       <a href="#policies">Routing policies</a>
       <a href="#adapters">Provider adapters</a>
       <a href="#reranking">Reranking</a>
+      <a href="#resilience">Resilience</a>
     </div>
     <div class="group">
       <span>Reference</span>
@@ -524,6 +525,20 @@ createCallbackProviderAdapter({
 router.plan({ task: <span class="tk-s">"redline"</span>, input, inputModalities: [<span class="tk-s">"text"</span>], preference: euOnlyThenCheapest });</code></pre>
       <p>When a function is used, <code>plan.preference</code> is reported as <code>"custom"</code>. Helpers <code>estimatedCostUsd</code>, <code>qualityScore</code>, and <code>namedPolicy</code> are exported if you want to compose the built-ins.</p>
 
+      <h3>Composable helpers <span class="pill">a-la-carte</span></h3>
+      <p>Each is a one-import policy you drop into <code>preference</code> — combine only the ones you need.</p>
+      <table>
+        <thead><tr><th>Helper</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td><code>pin(ids)</code></td><td>Pin a model — or a fallback band — to the front; the rest follow.</td></tr>
+          <tr><td><code>qualityCap(max)</code></td><td>Best model under a quality ceiling — "good enough, don't overpay."</td></tr>
+          <tr><td><code>byCoverage(tags)</code></td><td>Soft tag match — rank by overlap. Routes connectors/subagents, not just models.</td></tr>
+          <tr><td><code>sticky(currentId, base)</code></td><td>Keep the warm model (prefix cache) unless a challenger wins by a margin.</td></tr>
+          <tr><td><code>byBenchmark(src)</code></td><td>Rank by a benchmark — a name, a blend fn, or a live <code>{ resolve }</code> source.</td></tr>
+          <tr><td><code>loadBalance</code> · <code>roundRobin</code></td><td>Spread across the top-N · rotate API keys.</td></tr>
+        </tbody>
+      </table>
+
       <h3>Load balancing &amp; key rotation <span class="pill">rotation</span></h3>
       <p><code>loadBalance</code> spreads requests across the top-N candidates instead of always picking #1 — "cheapest, but cycle through the two cheapest providers." It wraps a base preference or policy, ranks, then round-robins which of the top <code>across</code> is selected each call; the rest stay as ordered fallbacks, so failover still works. It's stateful (holds a cursor) — build it once and reuse it.</p>
       <pre><code><span class="tk-k">import</span> { loadBalance } <span class="tk-k">from</span> <span class="tk-s">"@swoosh-dev/router"</span>;
@@ -618,9 +633,34 @@ createAiSdkProviderAdapter({
       <div class="note"><b>Batteries included.</b> <code>@swoosh-dev/capabilities</code> ships dedicated rerankers (Cohere, Voyage, Jina, mixedbread) in its dataset. Pricing differs by provider — Cohere bills per search (<code>rerank.pricePerSearchUsd</code>), Voyage/Jina per token — and cost-based routing handles both. Plan a rerank without executing via <code>router.planRerank(request)</code>.</div>
     </section>
 
+    <!-- RESILIENCE -->
+    <section class="doc" id="resilience">
+      <h2><span class="no">14</span> Resilience</h2>
+      <p class="lead">Routing has two seams: <em>which</em> model to pick (policies, above) and <em>how</em> the plan runs — fallback, retry, timeout, cooldown. Every piece is opt-in; the defaults stay "fail fast, fall over."</p>
+      <h3>Automatic fallback</h3>
+      <p>Each <code>run</code> / <code>generate</code> walks the ranked routes: if the selected model's adapter throws, it tries the next, recording every <code>attempt</code>. On by default — set <code>constraints.allowFallbacks: false</code> to disable.</p>
+      <h3>Retry &amp; timeout <span class="pill">per request</span></h3>
+      <p><code>retry</code> re-tries the <em>same</em> route with exponential backoff before falling through — for transient 429/5xx where waiting helps. <code>timeout</code> fails a slow route so the router moves on. Both are request fields:</p>
+      <pre><code><span class="tk-k">await</span> router.generate({
+  task, input, prompt, inputModalities: [<span class="tk-s">"text"</span>],
+  retry: { attempts: <span class="tk-n">3</span>, backoffMs: <span class="tk-n">200</span>, retryOn: (e) =&gt; isTransient(e) },
+  timeout: <span class="tk-n">10_000</span>,  <span class="tk-c">// ms per attempt</span>
+});</code></pre>
+      <h3>Cooldown-aware routing <span class="pill">healthAware</span></h3>
+      <p>The lean half of LiteLLM-style health routing — no server, no DB. A <code>HealthTracker</code> consumes the <code>attempts</code> each run returns: a failure benches that deployment for a cooldown, a success clears it. <code>healthAware</code> routes around cooling-down routes (kept as last resort, never dropped), composing with any base policy.</p>
+      <pre><code><span class="tk-k">import</span> { createHealthTracker, healthAware } <span class="tk-k">from</span> <span class="tk-s">"@swoosh-dev/router"</span>;
+
+<span class="tk-k">const</span> health = createHealthTracker({ cooldownMs: <span class="tk-n">60_000</span> });
+<span class="tk-k">const</span> policy = healthAware(<span class="tk-s">"cheapest"</span>, health);
+
+<span class="tk-k">const</span> res = <span class="tk-k">await</span> router.run({ ...request, preference: policy });
+health.record(res.attempts);  <span class="tk-c">// a 429 benches that route for 60s</span></code></pre>
+      <div class="note"><b>Lean by design.</b> These are the LiteLLM pieces worth having — fallback, retry, cooldown, key rotation — as composable functions, not a proxy. No gateway, virtual keys, or spend DB; swoosh stays an embeddable library.</div>
+    </section>
+
     <!-- TYPES -->
     <section class="doc" id="types">
-      <h2><span class="no">14</span> Types</h2>
+      <h2><span class="no">15</span> Types</h2>
       <p>All types are re-exported from the package root. Key unions:</p>
       <table>
         <thead><tr><th>Type</th><th>Values / shape</th></tr></thead>
@@ -640,7 +680,7 @@ createAiSdkProviderAdapter({
 
     <!-- ERRORS -->
     <section class="doc" id="errors">
-      <h2><span class="no">15</span> Errors</h2>
+      <h2><span class="no">16</span> Errors</h2>
       <p>Failures reject the returned Promise with a <code>ModelRouterError</code>. Handle them with <code>try</code>/<code>catch</code> (or <code>.catch()</code>).</p>
       <pre><code><span class="tk-k">import</span> { ModelRouterError } <span class="tk-k">from</span> <span class="tk-s">"@swoosh-dev/router"</span>;
 

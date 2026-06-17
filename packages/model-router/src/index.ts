@@ -26,6 +26,7 @@ export {
   type RerankResult,
   type RerankScore,
   type RerankedDocument,
+  type RetryOptions,
   type RoutePlan,
   type RouterAttempt,
   type RouterRunResult,

@@ -397,6 +397,13 @@ var providerAvailable = (adapter) => Boolean(adapter) && (adapter?.isAvailable ?
 var reject = (rejected, capability, reason) => {
   rejected.push({ providerId: capability.providerId, modelId: capability.modelId, reason });
 };
+var sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+var withTimeout = (pending, ms) => Promise.race([
+  pending,
+  new Promise(
+    (_, reject2) => setTimeout(() => reject2(new ModelRouterError(`Timed out after ${ms}ms.`)), ms)
+  )
+]);
 var ModelRouter = class {
   constructor(options) {
     this.options = options;
@@ -607,7 +614,7 @@ var ModelRouter = class {
     const topK = request.topK ?? request.documents.length;
     const run = await this.executePlan(
       plan,
-      request.task,
+      request,
       (adapter, capability) => adapter.rerank ? adapter.rerank({ ...request, model: capability }).then(
         (scored) => [...scored].filter((s) => s.index >= 0 && s.index < request.documents.length).map(
           (s) => ({
@@ -654,7 +661,7 @@ var ModelRouter = class {
     if (wantsImage) {
       return this.executePlan(
         plan,
-        request.task,
+        request,
         (adapter, capability) => adapter.generateImage ? adapter.generateImage({
           ...request,
           model: capability
@@ -665,14 +672,14 @@ var ModelRouter = class {
     if (request.schema !== void 0) {
       return this.executePlan(
         plan,
-        request.task,
+        request,
         (adapter, capability) => adapter.generateObject ? this.generateValidatedObject(adapter, capability, request) : void 0,
         "Provider adapter cannot generate objects."
       );
     }
     return this.executePlan(
       plan,
-      request.task,
+      request,
       (adapter, capability) => adapter.generateText ? adapter.generateText({
         ...request,
         prompt: request.prompt ?? "",
@@ -706,7 +713,7 @@ var ModelRouter = class {
     const plan = await this.plan(request);
     return this.executePlan(
       plan,
-      request.task,
+      request,
       (adapter, capability) => adapter.generateObject ? this.generateValidatedObject(adapter, capability, request) : void 0,
       "Provider adapter cannot generate objects."
     );
@@ -717,7 +724,7 @@ var ModelRouter = class {
     const plan = await this.plan(request);
     return this.executePlan(
       plan,
-      request.task,
+      request,
       (adapter, capability) => adapter.generateText ? adapter.generateText({ ...request, model: capability }) : void 0,
       "Provider adapter cannot generate text."
     );
@@ -730,39 +737,37 @@ var ModelRouter = class {
   async generateText(request) {
     return (await this.runText(request)).output;
   }
-  async executePlan(plan, task, invoke, unsupportedReason) {
+  async executePlan(plan, request, invoke, unsupportedReason) {
     const routes = [plan.selected, ...plan.fallbacks];
     const attempts = [];
+    const maxTries = Math.max(1, request.retry?.attempts ?? 1);
     for (const route of routes) {
       const adapter = this.providers.get(route.capability.providerId);
-      const pending = adapter ? invoke(adapter, route.capability) : void 0;
-      if (!pending) {
-        attempts.push({
-          providerId: route.capability.providerId,
-          modelId: route.capability.modelId,
-          ok: false,
-          error: unsupportedReason
-        });
-        continue;
-      }
-      try {
-        const output = await pending;
-        attempts.push({
-          providerId: route.capability.providerId,
-          modelId: route.capability.modelId,
-          ok: true
-        });
-        return { output, plan, attempts };
-      } catch (cause) {
-        attempts.push({
-          providerId: route.capability.providerId,
-          modelId: route.capability.modelId,
-          ok: false,
-          error: cause instanceof Error ? cause.message : String(cause)
-        });
+      const { providerId, modelId } = route.capability;
+      for (let tryIndex = 0; tryIndex < maxTries; tryIndex++) {
+        const pending = adapter ? invoke(adapter, route.capability) : void 0;
+        if (!pending) {
+          attempts.push({ providerId, modelId, ok: false, error: unsupportedReason });
+          break;
+        }
+        try {
+          const output = await (request.timeout ? withTimeout(pending, request.timeout) : pending);
+          attempts.push({ providerId, modelId, ok: true });
+          return { output, plan, attempts };
+        } catch (cause) {
+          attempts.push({
+            providerId,
+            modelId,
+            ok: false,
+            error: cause instanceof Error ? cause.message : String(cause)
+          });
+          const canRetry = tryIndex < maxTries - 1 && (request.retry?.retryOn?.(cause) ?? true);
+          if (!canRetry) break;
+          if (request.retry?.backoffMs) await sleep(request.retry.backoffMs * 2 ** tryIndex);
+        }
       }
     }
-    throw new ModelRouterError(`All model routes failed for task "${task}".`);
+    throw new ModelRouterError(`All model routes failed for task "${request.task}".`);
   }
 };
 

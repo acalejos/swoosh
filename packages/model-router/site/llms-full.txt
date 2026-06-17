@@ -538,6 +538,15 @@ interface ImageInput {
 }
 /** A string (URL or `data:` URL) or a structured {@link ImageInput}. */
 type ImagePart = string | ImageInput;
+/** Retry the *same* route before falling through to the next (per-call, opt-in). */
+interface RetryOptions {
+    /** Total tries per route, including the first. */
+    readonly attempts: number;
+    /** Base backoff in ms; grows exponentially (`backoffMs * 2 ** tryIndex`). */
+    readonly backoffMs?: number;
+    /** Decide whether an error is retryable. Defaults to retrying all errors. */
+    readonly retryOn?: (error: unknown) => boolean;
+}
 interface TaskRequest<Input = unknown> {
     readonly task: string;
     readonly input: Input;
@@ -556,6 +565,10 @@ interface TaskRequest<Input = unknown> {
     readonly requiresAnyFeatures?: readonly ModelFeature[];
     readonly preference?: RoutingPreference | RoutingPolicy;
     readonly constraints?: TaskConstraints;
+    /** Retry the same route (with backoff) before falling through to the next. */
+    readonly retry?: RetryOptions;
+    /** Per-attempt timeout (ms); a slow route is failed and the router falls through. */
+    readonly timeout?: number;
 }
 interface GenerateObjectRequest<Input = unknown> extends TaskRequest<Input> {
     readonly schema?: unknown;
@@ -671,6 +684,10 @@ interface RerankRequest<Input = unknown> {
     readonly requiresAnyFeatures?: readonly ModelFeature[];
     readonly preference?: RoutingPreference | RoutingPolicy;
     readonly constraints?: TaskConstraints;
+    /** Retry the same route (with backoff) before falling through to the next. */
+    readonly retry?: RetryOptions;
+    /** Per-attempt timeout (ms); a slow route is failed and the router falls through. */
+    readonly timeout?: number;
     readonly estimatedInputTokens?: number;
     readonly estimatedOutputTokens?: number;
     readonly metadata?: Record<string, unknown>;
@@ -1078,7 +1095,7 @@ declare const apiKeyEnvVarsFor: (providerId: string) => readonly string[];
  */
 declare const hasApiKey: (providerId: string, options?: HasApiKeyOptions) => boolean;
 
-export { type BenchmarkScores, type BenchmarkSource, type ByBenchmarkOptions, type ByCoverageOptions, type CallbackProviderOptions, type CapabilityCatalog, type CapabilityOverride, type GenerateImageRequest, type GenerateObjectRequest, type GenerateRequest, type GenerateTextRequest, type GeneratedImage, type HasApiKeyOptions, type HealthTracker, type HealthTrackerOptions, type ImageInput, type ImagePart, type LatencyClass, type LlmRerankerOptions, type LoadBalanceOptions, type LoadBalanceStrategy, type ModelCapability, type ModelFeature, type ModelLimits, type ModelModality, type ModelPricing, ModelRouter, ModelRouterError, type ModelRouterOptions, ModelsDevCapabilityCatalog, type ProviderAdapter, type ProviderGenerateImageRequest, type ProviderGenerateObjectRequest, type ProviderGenerateTextRequest, type ProviderRerankRequest, type RankedModel, type RejectedModel, type RerankRequest, type RerankResult, type RerankScore, type RerankedDocument, type RoutePlan, type RouterAttempt, type RouterRunResult, type RoutingPolicy, type RoutingPolicyContext, type RoutingPreference, SchemaValidationError, StaticCapabilityCatalog, type StickyOptions, type TaskConstraints, type TaskRequest, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, byCoverage, createCallbackProviderAdapter, createCapabilityCatalog, createHealthTracker, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, healthAware, llmReranker, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, pin, qualityCap, qualityScore, roundRobin, sticky, validateAgainstJsonSchema };
+export { type BenchmarkScores, type BenchmarkSource, type ByBenchmarkOptions, type ByCoverageOptions, type CallbackProviderOptions, type CapabilityCatalog, type CapabilityOverride, type GenerateImageRequest, type GenerateObjectRequest, type GenerateRequest, type GenerateTextRequest, type GeneratedImage, type HasApiKeyOptions, type HealthTracker, type HealthTrackerOptions, type ImageInput, type ImagePart, type LatencyClass, type LlmRerankerOptions, type LoadBalanceOptions, type LoadBalanceStrategy, type ModelCapability, type ModelFeature, type ModelLimits, type ModelModality, type ModelPricing, ModelRouter, ModelRouterError, type ModelRouterOptions, ModelsDevCapabilityCatalog, type ProviderAdapter, type ProviderGenerateImageRequest, type ProviderGenerateObjectRequest, type ProviderGenerateTextRequest, type ProviderRerankRequest, type RankedModel, type RejectedModel, type RerankRequest, type RerankResult, type RerankScore, type RerankedDocument, type RetryOptions, type RoutePlan, type RouterAttempt, type RouterRunResult, type RoutingPolicy, type RoutingPolicyContext, type RoutingPreference, SchemaValidationError, StaticCapabilityCatalog, type StickyOptions, type TaskConstraints, type TaskRequest, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, byCoverage, createCallbackProviderAdapter, createCapabilityCatalog, createHealthTracker, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, healthAware, llmReranker, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, pin, qualityCap, qualityScore, roundRobin, sticky, validateAgainstJsonSchema };
 ```
 
 
