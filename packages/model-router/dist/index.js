@@ -406,6 +406,11 @@ var ModelRouter = class {
         reject(rejected, capability, `Missing required feature: ${missingFeature}.`);
         continue;
       }
+      const anyFeatures = request.requiresAnyFeatures ?? [];
+      if (anyFeatures.length > 0 && !anyFeatures.some((f) => capability.features.includes(f))) {
+        reject(rejected, capability, `Has none of the features: ${anyFeatures.join(", ")}.`);
+        continue;
+      }
       if (capability.limits.contextTokens && capability.limits.contextTokens < inputTokens) {
         reject(rejected, capability, "Estimated input exceeds context window.");
         continue;
@@ -511,6 +516,11 @@ var ModelRouter = class {
       );
       if (missingFeature) {
         reject(rejected, capability, `Missing required feature: ${missingFeature}.`);
+        continue;
+      }
+      const anyFeatures = request.requiresAnyFeatures ?? [];
+      if (anyFeatures.length > 0 && !anyFeatures.some((f) => capability.features.includes(f))) {
+        reject(rejected, capability, `Has none of the features: ${anyFeatures.join(", ")}.`);
         continue;
       }
       const maxDocuments = capability.rerank.maxDocuments;

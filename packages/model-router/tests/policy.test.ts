@@ -87,6 +87,28 @@ test("byCoverage() soft-matches tags and ranks by overlap (vs hard-AND requiresF
   expect(ids).not.toContain("arxiv"); // 0 tags — policy-dropped (not in selected/fallbacks)
 });
 
+test("requiresAnyFeatures is an OR filter that composes with requiresFeatures (AND)", async () => {
+  const feat = (id: string, features: string[]) => ({ ...cap(id, {}), features });
+  const r = new ModelRouter({
+    catalog: createStaticCapabilityCatalog([
+      feat("a", ["structured_output", "web_search"]),
+      feat("b", ["structured_output", "tools"]),
+      feat("c", ["structured_output"]),
+      feat("d", ["web_search"]),
+    ]),
+    providers: [createCallbackProviderAdapter({ providerId: "p", generateText: () => "ok" })],
+  });
+  // must have structured_output AND (web_search OR tools): a, b qualify; c (neither), d (no structured) rejected
+  const plan = await r.plan({
+    task: "t", input: "x", inputModalities: ["text"],
+    requiresFeatures: ["structured_output"], requiresAnyFeatures: ["web_search", "tools"],
+  });
+  const ids = [plan.selected, ...plan.fallbacks].map((m) => m.capability.modelId).sort();
+  expect(ids).toEqual(["a", "b"]);
+  expect(plan.rejected.find((x) => x.modelId === "c")?.reason).toContain("Has none of the features");
+  expect(plan.rejected.find((x) => x.modelId === "d")?.reason).toContain("Missing required feature");
+});
+
 test("sticky() keeps the warm model unless a challenger beats it by margin", async () => {
   // base = best_quality: a(0.9) > b(0.6) > c(0.3). Current = c.
   const stay = await router.plan(req(sticky("p/c", byBenchmark("swe_bench"), { margin: 1 })));

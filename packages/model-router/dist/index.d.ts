@@ -86,6 +86,8 @@ interface TaskRequest<Input = unknown> {
     readonly estimatedInputTokens?: number;
     readonly estimatedOutputTokens?: number;
     readonly requiresFeatures?: readonly ModelFeature[];
+    /** At least one of these must be present (OR filter). Composes with the AND of `requiresFeatures`. */
+    readonly requiresAnyFeatures?: readonly ModelFeature[];
     readonly preference?: RoutingPreference | RoutingPolicy;
     readonly constraints?: TaskConstraints;
 }
@@ -199,6 +201,8 @@ interface RerankRequest<Input = unknown> {
     /** Return only the top N results (default: all). */
     readonly topK?: number;
     readonly requiresFeatures?: readonly ModelFeature[];
+    /** At least one of these must be present (OR filter). Composes with the AND of `requiresFeatures`. */
+    readonly requiresAnyFeatures?: readonly ModelFeature[];
     readonly preference?: RoutingPreference | RoutingPolicy;
     readonly constraints?: TaskConstraints;
     readonly estimatedInputTokens?: number;
