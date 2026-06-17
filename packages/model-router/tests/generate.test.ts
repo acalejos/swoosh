@@ -124,3 +124,92 @@ describe("ModelRouter.generate — output inferred from the request", () => {
     expect(object.output.kind).toBe("object");
   });
 });
+
+describe("ModelRouter.generate — structured-output schema validation", () => {
+  const schema = {
+    type: "object",
+    properties: {
+      product: { type: "string" },
+      colors: { type: "array", items: { type: "string" } },
+    },
+    required: ["product", "colors"],
+    additionalProperties: false,
+  };
+
+  const good: ModelCapability = {
+    providerId: "good",
+    providerName: "Good",
+    modelId: "good-1",
+    modelName: "Good One",
+    inputModalities: ["text"],
+    outputModalities: ["text"],
+    features: ["structured_output"],
+    limits: {},
+    pricing: { inputPerMillionTokens: 1, outputPerMillionTokens: 1 },
+  };
+  const bad: ModelCapability = { ...good, providerId: "bad", modelId: "bad-1", modelName: "Bad One" };
+
+  // The conforming model returns the right shape; the bad one returns the
+  // "GLM via OpenRouter" failure mode — renamed keys, missing required props.
+  const goodAdapter = createCallbackProviderAdapter({
+    providerId: "good",
+    isAvailable: () => true,
+    generateObject: () => ({ product: "Velvet Peak", colors: ["#2C1A15"] }),
+  });
+  const badAdapter = createCallbackProviderAdapter({
+    providerId: "bad",
+    isAvailable: () => true,
+    generateObject: () => ({ product_name: "Velvet Peak", brand_colors: ["#2C1A15"] }),
+  });
+
+  // Force "bad" to be tried first so we exercise the fall-through.
+  const badFirst = ({ candidates }: { candidates: readonly { capability: ModelCapability }[] }) =>
+    [...candidates].sort((a, b) =>
+      a.capability.modelId === "bad-1" ? -1 : b.capability.modelId === "bad-1" ? 1 : 0,
+    ) as never;
+
+  test("falls through to the next model when output fails the schema", async () => {
+    const router = new ModelRouter({
+      catalog: createStaticCapabilityCatalog([bad, good]),
+      providers: [badAdapter, goodAdapter],
+    });
+    const result = await router.generate<null, { product: string; colors: string[] }>({
+      task: "brand",
+      input: null,
+      inputModalities: ["text"],
+      schema,
+      preference: badFirst,
+    });
+    expect(result.output).toEqual({ product: "Velvet Peak", colors: ["#2C1A15"] });
+    expect(result.attempts[0]?.ok).toBe(false);
+    expect(result.attempts[0]?.error).toMatch(/schema validation/);
+    expect(result.attempts.at(-1)?.ok).toBe(true);
+    expect(result.attempts.at(-1)?.providerId).toBe("good");
+  });
+
+  test("throws when no routed model produces a conforming object", async () => {
+    const router = new ModelRouter({
+      catalog: createStaticCapabilityCatalog([bad]),
+      providers: [badAdapter],
+    });
+    await expect(
+      router.generate({ task: "brand", input: null, inputModalities: ["text"], schema }),
+    ).rejects.toThrow(/All model routes failed/);
+  });
+
+  test("validateStructuredOutput:false restores pass-through behavior", async () => {
+    const router = new ModelRouter({
+      catalog: createStaticCapabilityCatalog([bad]),
+      providers: [badAdapter],
+      validateStructuredOutput: false,
+    });
+    const result = await router.generate<null, Record<string, unknown>>({
+      task: "brand",
+      input: null,
+      inputModalities: ["text"],
+      schema,
+    });
+    expect(result.output).toEqual({ product_name: "Velvet Peak", brand_colors: ["#2C1A15"] });
+    expect(result.attempts.at(-1)?.ok).toBe(true);
+  });
+});

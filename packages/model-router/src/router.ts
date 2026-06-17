@@ -14,8 +14,10 @@ import {
   type RouterAttempt,
   type RouterRunResult,
   type RoutingPreference,
+  SchemaValidationError,
   type TaskRequest,
 } from "./types";
+import { looksLikeJsonSchema, validateAgainstJsonSchema } from "./schema";
 
 const DEFAULT_INPUT_TOKENS = 8_000;
 const DEFAULT_OUTPUT_TOKENS = 2_000;
@@ -36,6 +38,13 @@ export interface ModelRouterOptions {
   readonly catalog: CapabilityCatalog;
   readonly providers: readonly ProviderAdapter[];
   readonly defaultPreference?: RoutingPreference;
+  /**
+   * Validate structured output against the request's JSON Schema and fall
+   * through to the next routed model when it doesn't conform. On by default —
+   * set `false` to restore the old pass-through behavior. Only JSON-Schema
+   * shaped schemas are enforced; other representations are left to the adapter.
+   */
+  readonly validateStructuredOutput?: boolean;
 }
 
 export class ModelRouter {
@@ -206,7 +215,7 @@ export class ModelRouter {
         request.task,
         (adapter, capability) =>
           adapter.generateObject
-            ? adapter.generateObject<Input, Output>({ ...request, model: capability })
+            ? this.generateValidatedObject<Input, Output>(adapter, capability, request)
             : undefined,
         "Provider adapter cannot generate objects.",
       );
@@ -227,6 +236,33 @@ export class ModelRouter {
     );
   }
 
+  /**
+   * Call an adapter's `generateObject` and, unless disabled, validate the
+   * result against the request's JSON Schema. A non-conforming object throws a
+   * {@link SchemaValidationError}, which `executePlan` records as a failed
+   * attempt — so the router falls through to the next routed model.
+   */
+  private async generateValidatedObject<Input, Output>(
+    adapter: ProviderAdapter,
+    capability: ModelCapability,
+    request: GenerateObjectRequest<Input> | GenerateRequest<Input>,
+  ): Promise<Output> {
+    const output = await adapter.generateObject!<Input, Output>({
+      ...request,
+      model: capability,
+    });
+    if (
+      this.options.validateStructuredOutput !== false &&
+      looksLikeJsonSchema(request.schema)
+    ) {
+      const issues = validateAgainstJsonSchema(output, request.schema);
+      if (issues.length > 0) {
+        throw new SchemaValidationError(capability.modelId, issues);
+      }
+    }
+    return output;
+  }
+
   /** @deprecated Use {@link generate} — it infers structured output from a
    *  `schema` in the request. `run` remains as a thin alias. */
   async run<Input, Output>(
@@ -238,7 +274,7 @@ export class ModelRouter {
       request.task,
       (adapter, capability) =>
         adapter.generateObject
-          ? adapter.generateObject<Input, Output>({ ...request, model: capability })
+          ? this.generateValidatedObject<Input, Output>(adapter, capability, request)
           : undefined,
       "Provider adapter cannot generate objects.",
     );

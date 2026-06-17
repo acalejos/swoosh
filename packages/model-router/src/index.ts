@@ -1,5 +1,6 @@
 export {
   ModelRouterError,
+  SchemaValidationError,
   type CapabilityCatalog,
   type GeneratedImage,
   type GenerateImageRequest,
@@ -51,6 +52,7 @@ export {
   type LoadBalanceStrategy,
 } from "./balance";
 export { ModelRouter, type ModelRouterOptions } from "./router";
+export { looksLikeJsonSchema, validateAgainstJsonSchema } from "./schema";
 export {
   createCallbackProviderAdapter,
   type CallbackProviderOptions,

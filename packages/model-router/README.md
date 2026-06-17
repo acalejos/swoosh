@@ -72,7 +72,11 @@ const { output: blurb } = await router.generate<string, string>({
   task: "tagline", input: brief, inputModalities: ["text"], prompt: "Write a tagline.",
 });
 
-// structured — a `schema` is present
+// structured — a `schema` is present. The result is validated against the
+// JSON Schema; if a model returns a non-conforming object the router treats it
+// as a failed attempt and falls through to the next routed model. (Disable with
+// `validateStructuredOutput: false` on the router; non-JSON-Schema schemas, e.g.
+// Zod, are left to the adapter.)
 const { output: recipe } = await router.generate({
   task: "recipe.extract", input: pageText, inputModalities: ["text"], schema: recipeSchema,
 });

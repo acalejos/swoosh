@@ -199,3 +199,20 @@ export class ModelRouterError extends Error {
     this.name = "ModelRouterError";
   }
 }
+
+/**
+ * Thrown when a model's structured output does not conform to the requested
+ * JSON Schema. The router treats this like any other failed attempt, so it
+ * falls through to the next routed model rather than returning a bad object.
+ */
+export class SchemaValidationError extends ModelRouterError {
+  constructor(
+    readonly modelId: string,
+    readonly issues: readonly string[],
+  ) {
+    super(
+      `Structured output from "${modelId}" failed schema validation: ${issues.join("; ")}`,
+    );
+    this.name = "SchemaValidationError";
+  }
+}
