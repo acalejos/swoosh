@@ -324,7 +324,11 @@ const { output: blurb } = await router.generate<string, string>({
   task: "tagline", input: brief, inputModalities: ["text"], prompt: "Write a tagline.",
 });
 
-// structured — a `schema` is present
+// structured — a `schema` is present. The result is validated against the
+// JSON Schema; if a model returns a non-conforming object the router treats it
+// as a failed attempt and falls through to the next routed model. (Disable with
+// `validateStructuredOutput: false` on the router; non-JSON-Schema schemas, e.g.
+// Zod, are left to the adapter.)
 const { output: recipe } = await router.generate({
   task: "recipe.extract", input: pageText, inputModalities: ["text"], schema: recipeSchema,
 });
@@ -616,6 +620,16 @@ declare class ModelRouterError extends Error {
     readonly cause?: unknown | undefined;
     constructor(message: string, cause?: unknown | undefined);
 }
+/**
+ * Thrown when a model's structured output does not conform to the requested
+ * JSON Schema. The router treats this like any other failed attempt, so it
+ * falls through to the next routed model rather than returning a bad object.
+ */
+declare class SchemaValidationError extends ModelRouterError {
+    readonly modelId: string;
+    readonly issues: readonly string[];
+    constructor(modelId: string, issues: readonly string[]);
+}
 
 declare class StaticCapabilityCatalog implements CapabilityCatalog {
     private readonly capabilities;
@@ -724,6 +738,13 @@ interface ModelRouterOptions {
     readonly catalog: CapabilityCatalog;
     readonly providers: readonly ProviderAdapter[];
     readonly defaultPreference?: RoutingPreference;
+    /**
+     * Validate structured output against the request's JSON Schema and fall
+     * through to the next routed model when it doesn't conform. On by default —
+     * set `false` to restore the old pass-through behavior. Only JSON-Schema
+     * shaped schemas are enforced; other representations are left to the adapter.
+     */
+    readonly validateStructuredOutput?: boolean;
 }
 declare class ModelRouter {
     private readonly options;
@@ -746,6 +767,13 @@ declare class ModelRouter {
      * the router falls through to the next route.
      */
     generate<Input, Output>(request: GenerateRequest<Input>): Promise<RouterRunResult<Output>>;
+    /**
+     * Call an adapter's `generateObject` and, unless disabled, validate the
+     * result against the request's JSON Schema. A non-conforming object throws a
+     * {@link SchemaValidationError}, which `executePlan` records as a failed
+     * attempt — so the router falls through to the next routed model.
+     */
+    private generateValidatedObject;
     /** @deprecated Use {@link generate} — it infers structured output from a
      *  `schema` in the request. `run` remains as a thin alias. */
     run<Input, Output>(request: GenerateObjectRequest<Input>): Promise<RouterRunResult<Output>>;
@@ -758,6 +786,30 @@ declare class ModelRouter {
     generateText<Input>(request: GenerateTextRequest<Input>): Promise<string>;
     private executePlan;
 }
+
+/**
+ * A tiny, dependency-free validator for the common subset of JSON Schema that
+ * structured-output requests use. It is intentionally NOT a full JSON Schema
+ * implementation — it covers what models are actually constrained to produce
+ * (types, properties, required, enums, items, composition) so the router can
+ * honor its "schema-validated object" contract without pulling in a heavy
+ * dependency or coupling to any one schema library.
+ *
+ * Anything it doesn't recognize is treated permissively (no false negatives):
+ * unknown keywords, boolean sub-schemas, and non-JSON-Schema values (e.g. a Zod
+ * schema, which the adapter validates itself) simply pass.
+ */
+/**
+ * Does `schema` look like a JSON Schema we can validate against? Used so the
+ * router only enforces validation when given an actual JSON Schema, leaving
+ * other schema representations (Zod, etc.) to the adapter.
+ */
+declare const looksLikeJsonSchema: (schema: unknown) => schema is Record<string, unknown>;
+/**
+ * Validate `value` against a JSON Schema. Returns a list of human-readable
+ * issues (with dotted paths); an empty array means the value conforms.
+ */
+declare const validateAgainstJsonSchema: (value: unknown, schema: unknown) => string[];
 
 interface CallbackProviderOptions {
     readonly providerId: string;
@@ -803,7 +855,7 @@ declare const apiKeyEnvVarsFor: (providerId: string) => readonly string[];
  */
 declare const hasApiKey: (providerId: string, options?: HasApiKeyOptions) => boolean;
 
-export { type ByBenchmarkOptions, type CallbackProviderOptions, type CapabilityCatalog, type CapabilityOverride, type GenerateImageRequest, type GenerateObjectRequest, type GenerateRequest, type GenerateTextRequest, type GeneratedImage, type HasApiKeyOptions, type LatencyClass, type LoadBalanceOptions, type LoadBalanceStrategy, type ModelCapability, type ModelFeature, type ModelLimits, type ModelModality, type ModelPricing, ModelRouter, ModelRouterError, type ModelRouterOptions, ModelsDevCapabilityCatalog, type ProviderAdapter, type ProviderGenerateImageRequest, type ProviderGenerateObjectRequest, type ProviderGenerateTextRequest, type RankedModel, type RejectedModel, type RoutePlan, type RouterAttempt, type RouterRunResult, type RoutingPolicy, type RoutingPolicyContext, type RoutingPreference, StaticCapabilityCatalog, type TaskConstraints, type TaskRequest, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, createCallbackProviderAdapter, createCapabilityCatalog, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, loadBalance, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, qualityScore, roundRobin };
+export { type ByBenchmarkOptions, type CallbackProviderOptions, type CapabilityCatalog, type CapabilityOverride, type GenerateImageRequest, type GenerateObjectRequest, type GenerateRequest, type GenerateTextRequest, type GeneratedImage, type HasApiKeyOptions, type LatencyClass, type LoadBalanceOptions, type LoadBalanceStrategy, type ModelCapability, type ModelFeature, type ModelLimits, type ModelModality, type ModelPricing, ModelRouter, ModelRouterError, type ModelRouterOptions, ModelsDevCapabilityCatalog, type ProviderAdapter, type ProviderGenerateImageRequest, type ProviderGenerateObjectRequest, type ProviderGenerateTextRequest, type RankedModel, type RejectedModel, type RoutePlan, type RouterAttempt, type RouterRunResult, type RoutingPolicy, type RoutingPolicyContext, type RoutingPreference, SchemaValidationError, StaticCapabilityCatalog, type TaskConstraints, type TaskRequest, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, createCallbackProviderAdapter, createCapabilityCatalog, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, qualityScore, roundRobin, validateAgainstJsonSchema };
 ```
 
 
@@ -1094,6 +1146,223 @@ interface AiSdkProviderOptions {
 declare const createAiSdkProviderAdapter: (options: AiSdkProviderOptions) => ProviderAdapter;
 
 export { type AiSdkProviderOptions, createAiSdkProviderAdapter };
+```
+
+
+---
+
+
+## @swoosh-dev/testing
+
+> Test utilities: fake catalogs, recording mock providers, and a fluent plan-assertion chain.
+
+Install: `npm install @swoosh-dev/testing` · Source: https://github.com/acalejos/swoosh/tree/main/packages/testing
+
+# @swoosh-dev/testing
+
+Test utilities for [`@swoosh-dev/router`](../model-router) — exercise your catalog, policies, and routing config **without hitting real providers**. Framework-agnostic: assertions just throw, so it works in `bun:test`, Vitest, Jest, or `node:test`.
+
+```sh
+npm i -D @swoosh-dev/testing
+```
+
+## Fixtures + mocks
+
+```ts
+import { model, mockProvider, routerForTest, failAlways } from "@swoosh-dev/testing";
+
+const router = routerForTest({
+  models: [
+    model("openai/gpt-5", { features: ["tools"], pricing: { input: 5, output: 15 }, qualityScore: 0.9 }),
+    model("google/gemini-2.5-flash", { inputModalities: ["text", "image"], pricing: { input: 0.1 } }),
+  ],
+  providers: [
+    mockProvider("openai", { generateObject: () => ({ category: "billing" }) }),
+    mockProvider("google", { generateText: () => "hi" }),
+  ],
+});
+```
+
+- **`model("provider/id", opts)`** — a fake `ModelCapability`; everything unspecified gets a sensible default.
+- **`fakeCatalog(models)`** — a static catalog over those models.
+- **`mockProvider(id, handlers)`** — a programmable provider adapter that **records every call** (`provider.calls`, `provider.callCount()`). Handlers are a value or a function of the request.
+- **`failAlways()`** (provider is down → drives fallback), **`failOnce(value)`** (transient), **`echo`** (returns the prompt).
+- **`routerForTest({ models, providers })`** — a wired `ModelRouter`; its `.plan()` result also carries `.expects()`.
+
+## Asserting on plans
+
+A fluent, throwing chain — no matcher registration, works in any runner:
+
+```ts
+const plan = await router.plan({
+  task: "support.triage",
+  input: ticket,
+  inputModalities: ["text"],
+  requiresFeatures: ["structured_output"],
+  preference: "cheapest",
+  constraints: { maxCostUsd: 0.01 },
+});
+
+plan.expects()                               // or: expects(plan)
+  .selects("google/gemini-2.5-flash")        // bare "gemini-2.5-flash" also matches
+  .rejects("openai/gpt-5", /over budget/)    // in plan.rejected, with a matching reason
+  .ranksBefore("google/gemini-2.5-flash", "openai/gpt-5")
+  .costsUnder(0.01)
+  .not.selects("openai/gpt-5");
+```
+
+Matchers: `selects` · `rejects(id, reason?)` · `ranksBefore(a, b)` · `fallsBackTo(id)` · `costsUnder(usd)`, each negatable via `.not`. Ids are `"provider/model"` (exact) or a bare `"model"` (matches across providers). Failures throw a `SwooshExpectError` whose message includes a `formatPlan(plan)` dump (also exported for snapshot tests).
+
+## Testing fallback
+
+```ts
+import { routerForTest, model, mockProvider, failAlways } from "@swoosh-dev/testing";
+
+const router = routerForTest({
+  models: [model("openai/gpt-5", { qualityScore: 0.9 }), model("anthropic/claude-haiku-4-5", { qualityScore: 0.7 })],
+  providers: [
+    mockProvider("openai", { generateText: failAlways("503") }), // selected, but down
+    mockProvider("anthropic", { generateText: () => "recovered" }),
+  ],
+});
+
+const { output, attempts } = await router.runText({
+  task: "t", input: "x", prompt: "hi", inputModalities: ["text"], preference: "best_quality",
+});
+// output === "recovered"; attempts records the failed openai try then the anthropic success
+```
+
+## License
+
+[Apache-2.0](LICENSE) © Andres Alejos
+
+### @swoosh-dev/testing — type definitions
+
+```ts
+import { ModelModality, ModelFeature, LatencyClass, RoutePlan, ProviderAdapter, ProviderGenerateObjectRequest, ProviderGenerateTextRequest, ModelRouter, TaskRequest, ModelCapability, RoutingPreference, CapabilityCatalog } from '@swoosh-dev/router';
+
+/** Friendly, defaulted options for {@link model} — specify only what the test cares about. */
+interface FakeModelOptions {
+    readonly providerName?: string;
+    readonly modelName?: string;
+    readonly inputModalities?: readonly ModelModality[];
+    readonly outputModalities?: readonly ModelModality[];
+    readonly features?: readonly ModelFeature[];
+    /** Per-MILLION-token prices (matches ModelPricing, just terser). */
+    readonly pricing?: {
+        readonly input?: number;
+        readonly output?: number;
+    };
+    readonly contextTokens?: number;
+    readonly outputTokens?: number;
+    readonly latencyClass?: LatencyClass;
+    readonly qualityScore?: number;
+    readonly benchmarks?: Readonly<Record<string, number>>;
+    readonly releaseDate?: string;
+}
+/**
+ * Build a fake {@link ModelCapability} from a `"provider/model"` id and a few
+ * overrides. Everything unspecified gets a sensible default (text in/out, no
+ * features, empty limits/pricing).
+ *
+ *     model("openai/gpt-5", { features: ["tools"], pricing: { input: 5, output: 15 }, qualityScore: 0.9 })
+ */
+declare function model(id: string, opts?: FakeModelOptions): ModelCapability;
+/** A static {@link CapabilityCatalog} over the given fake models. */
+declare function fakeCatalog(models: readonly ModelCapability[]): CapabilityCatalog;
+interface RecordedCall {
+    readonly method: "generateObject" | "generateText";
+    readonly providerId: string;
+    readonly modelId: string;
+    readonly request: ProviderGenerateObjectRequest | ProviderGenerateTextRequest;
+}
+type Handler<Req, Res> = Res | ((request: Req) => Res | Promise<Res>);
+interface MockProviderOptions {
+    readonly name?: string;
+    readonly isAvailable?: boolean | (() => boolean);
+    readonly generateObject?: Handler<ProviderGenerateObjectRequest, unknown>;
+    readonly generateText?: Handler<ProviderGenerateTextRequest, string>;
+}
+interface MockProvider extends ProviderAdapter {
+    /** Every call the router made to this provider, in order. */
+    readonly calls: readonly RecordedCall[];
+    /** Number of calls (optionally for one method). */
+    callCount(method?: RecordedCall["method"]): number;
+    /** Clear the recorded calls. */
+    reset(): void;
+}
+/**
+ * A programmable, call-recording {@link ProviderAdapter}. Handlers can be a
+ * literal value or a function of the request.
+ *
+ *     const openai = mockProvider("openai", { generateObject: () => ({ ok: true }) });
+ *     const down   = mockProvider("anthropic", { generateText: failAlways() });
+ *     // ... after a run: expect(openai.calls).toHaveLength(1)
+ */
+declare function mockProvider(providerId: string, opts?: MockProviderOptions): MockProvider;
+/** Handler that always throws — model a provider that's down (drives fallback). */
+declare const failAlways: (error?: Error | string) => () => never;
+/** Handler that throws on its first call, then returns `value` — model a transient failure. */
+declare function failOnce<T>(value: T, error?: Error | string): () => T;
+/** generateText handler that returns the prompt back. */
+declare const echo: (request: ProviderGenerateTextRequest) => string;
+declare class SwooshExpectError extends Error {
+    constructor(message: string);
+}
+/** Negated matchers returned by {@link PlanExpect.not}; each returns the positive chain. */
+interface PlanMatchers {
+    selects(id: string): PlanExpect;
+    rejects(id: string, reason?: string | RegExp): PlanExpect;
+    ranksBefore(a: string, b: string): PlanExpect;
+    fallsBackTo(id: string): PlanExpect;
+    costsUnder(usd: number): PlanExpect;
+}
+/** A fluent, chainable assertion over a {@link RoutePlan}. Throws on failure. */
+declare class PlanExpect implements PlanMatchers {
+    readonly plan: RoutePlan;
+    constructor(plan: RoutePlan);
+    private assert;
+    private doSelects;
+    private doRejects;
+    private doRanksBefore;
+    private doFallsBackTo;
+    private doCostsUnder;
+    selects(id: string): this;
+    rejects(id: string, reason?: string | RegExp): this;
+    ranksBefore(a: string, b: string): this;
+    fallsBackTo(id: string): this;
+    costsUnder(usd: number): this;
+    /** Negate the next matcher: `expects(plan).not.selects("x")`. */
+    get not(): PlanMatchers;
+}
+/** Start an assertion chain over a plan: `expects(plan).selects("openai/gpt-5")`. */
+declare function expects(plan: RoutePlan): PlanExpect;
+/** Stable, human-readable plan dump — handy for snapshot tests and failure messages. */
+declare function formatPlan(plan: RoutePlan): string;
+type InspectablePlan = RoutePlan & {
+    expects(): PlanExpect;
+};
+interface TestRouterOptions {
+    readonly models: readonly ModelCapability[];
+    readonly providers: readonly ProviderAdapter[];
+    readonly defaultPreference?: RoutingPreference;
+    readonly validateStructuredOutput?: boolean;
+}
+interface TestRouter {
+    /** The underlying router, if you need the full surface. */
+    readonly router: ModelRouter;
+    /** Like `router.plan`, but the returned plan also has `.expects()`. */
+    plan<Input>(request: TaskRequest<Input>): Promise<InspectablePlan>;
+    run: ModelRouter["run"];
+    runText: ModelRouter["runText"];
+    generate: ModelRouter["generate"];
+    generateObject: ModelRouter["generateObject"];
+    generateText: ModelRouter["generateText"];
+}
+/** Wire a {@link ModelRouter} over fake models + (mock) providers in one call. */
+declare function routerForTest(opts: TestRouterOptions): TestRouter;
+
+export { type FakeModelOptions, type InspectablePlan, type MockProvider, type MockProviderOptions, PlanExpect, type PlanMatchers, type RecordedCall, SwooshExpectError, type TestRouter, type TestRouterOptions, echo, expects, failAlways, failOnce, fakeCatalog, formatPlan, mockProvider, model, routerForTest };
 ```
 
 

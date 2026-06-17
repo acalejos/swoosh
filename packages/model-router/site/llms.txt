@@ -10,6 +10,7 @@ swoosh is published as a set of scoped npm packages (`@swoosh-dev/*`). Start wit
 - [@swoosh-dev/capabilities](https://acalejos.github.io/swoosh/api/swoosh-dev-capabilities.md): Curated, enriched model dataset (models.dev ∪ web_search / latency / quality / benchmarks).
 - [@swoosh-dev/judge](https://acalejos.github.io/swoosh/api/swoosh-dev-judge.md): Dynamic policies: classify the prompt with an LLM judge, route by the verdict.
 - [@swoosh-dev/ai-sdk](https://acalejos.github.io/swoosh/api/swoosh-dev-ai-sdk.md): Vercel AI SDK provider adapter.
+- [@swoosh-dev/testing](https://acalejos.github.io/swoosh/api/swoosh-dev-testing.md): Test utilities: fake catalogs, recording mock providers, and a fluent plan-assertion chain.
 
 ## Examples
 Runnable, offline (simulated providers, no API keys):

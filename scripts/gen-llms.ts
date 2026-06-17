@@ -31,6 +31,7 @@ const PACKAGES = [
   { dir: "capabilities", name: "@swoosh-dev/capabilities", blurb: "Curated, enriched model dataset (models.dev ∪ web_search / latency / quality / benchmarks)." },
   { dir: "judge", name: "@swoosh-dev/judge", blurb: "Dynamic policies: classify the prompt with an LLM judge, route by the verdict." },
   { dir: "ai-sdk", name: "@swoosh-dev/ai-sdk", blurb: "Vercel AI SDK provider adapter." },
+  { dir: "testing", name: "@swoosh-dev/testing", blurb: "Test utilities: fake catalogs, recording mock providers, and a fluent plan-assertion chain." },
 ];
 
 // "@swoosh-dev/router" -> "swoosh-dev-router" for flat, URL-safe filenames

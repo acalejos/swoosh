@@ -13,7 +13,7 @@
     },
     "packages/ai-sdk": {
       "name": "@swoosh-dev/ai-sdk",
-      "version": "0.1.0",
+      "version": "0.3.0",
       "dependencies": {
         "@swoosh-dev/router": "workspace:*",
       },
@@ -23,25 +23,25 @@
     },
     "packages/capabilities": {
       "name": "@swoosh-dev/capabilities",
-      "version": "0.1.0",
+      "version": "0.3.0",
       "dependencies": {
         "@swoosh-dev/router": "workspace:*",
       },
     },
     "packages/judge": {
       "name": "@swoosh-dev/judge",
-      "version": "0.1.0",
+      "version": "0.3.0",
       "dependencies": {
         "@swoosh-dev/router": "workspace:*",
       },
     },
     "packages/model-router": {
       "name": "@swoosh-dev/router",
-      "version": "0.1.0",
+      "version": "0.3.0",
     },
     "packages/sdk": {
       "name": "@swoosh-dev/sdk",
-      "version": "0.1.0",
+      "version": "0.3.0",
       "dependencies": {
         "@swoosh-dev/ai-sdk": "workspace:*",
         "@swoosh-dev/capabilities": "workspace:*",
@@ -61,6 +61,13 @@
         "@ai-sdk/openai",
         "@openrouter/ai-sdk-provider",
       ],
+    },
+    "packages/testing": {
+      "name": "@swoosh-dev/testing",
+      "version": "0.3.0",
+      "dependencies": {
+        "@swoosh-dev/router": "workspace:*",
+      },
     },
   },
   "packages": {
@@ -193,6 +200,8 @@
     "@swoosh-dev/router": ["@swoosh-dev/router@workspace:packages/model-router"],
 
     "@swoosh-dev/sdk": ["@swoosh-dev/sdk@workspace:packages/sdk"],
+
+    "@swoosh-dev/testing": ["@swoosh-dev/testing@workspace:packages/testing"],
 
     "@types/bun": ["@types/bun@1.3.14", "", { "dependencies": { "bun-types": "1.3.14" } }, "sha512-h1hFqFVcvAvD9j9K7ZW7vd82aSA+rTdznZa+5bwvCwqSB1jmmfLcbIWhOLx1/+boy/xmjgCs/OMUL8hRJSmnPw=="],
 

@@ -38,7 +38,7 @@ jobs:
           DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
           set -euo pipefail
-          for pkg in model-router ai-sdk capabilities judge sdk; do
+          for pkg in model-router ai-sdk capabilities judge sdk testing; do
             echo "::group::swoosh-$pkg"
             args="--access public"
             [ "${DRY_RUN:-false}" = "true" ] && args="$args --dry-run"

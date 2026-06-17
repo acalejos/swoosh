@@ -1,0 +1,36 @@
+{
+  "name": "@swoosh-dev/testing",
+  "version": "0.3.0",
+  "description": "Test utilities for @swoosh-dev/router — fake catalogs, recording mock providers, and a fluent plan-assertion chain. Framework-agnostic.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean --treeshake"
+  },
+  "dependencies": {
+    "@swoosh-dev/router": "workspace:*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/acalejos/swoosh.git",
+    "directory": "packages/testing"
+  },
+  "homepage": "https://github.com/acalejos/swoosh#readme",
+  "publishConfig": {
+    "access": "public"
+  }
+}

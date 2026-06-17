@@ -76,7 +76,11 @@ const { output: blurb } = await router.generate<string, string>({
   task: "tagline", input: brief, inputModalities: ["text"], prompt: "Write a tagline.",
 });
 
-// structured — a `schema` is present
+// structured — a `schema` is present. The result is validated against the
+// JSON Schema; if a model returns a non-conforming object the router treats it
+// as a failed attempt and falls through to the next routed model. (Disable with
+// `validateStructuredOutput: false` on the router; non-JSON-Schema schemas, e.g.
+// Zod, are left to the adapter.)
 const { output: recipe } = await router.generate({
   task: "recipe.extract", input: pageText, inputModalities: ["text"], schema: recipeSchema,
 });
@@ -370,6 +374,16 @@ declare class ModelRouterError extends Error {
     readonly cause?: unknown | undefined;
     constructor(message: string, cause?: unknown | undefined);
 }
+/**
+ * Thrown when a model's structured output does not conform to the requested
+ * JSON Schema. The router treats this like any other failed attempt, so it
+ * falls through to the next routed model rather than returning a bad object.
+ */
+declare class SchemaValidationError extends ModelRouterError {
+    readonly modelId: string;
+    readonly issues: readonly string[];
+    constructor(modelId: string, issues: readonly string[]);
+}
 
 declare class StaticCapabilityCatalog implements CapabilityCatalog {
     private readonly capabilities;
@@ -478,6 +492,13 @@ interface ModelRouterOptions {
     readonly catalog: CapabilityCatalog;
     readonly providers: readonly ProviderAdapter[];
     readonly defaultPreference?: RoutingPreference;
+    /**
+     * Validate structured output against the request's JSON Schema and fall
+     * through to the next routed model when it doesn't conform. On by default —
+     * set `false` to restore the old pass-through behavior. Only JSON-Schema
+     * shaped schemas are enforced; other representations are left to the adapter.
+     */
+    readonly validateStructuredOutput?: boolean;
 }
 declare class ModelRouter {
     private readonly options;
@@ -500,6 +521,13 @@ declare class ModelRouter {
      * the router falls through to the next route.
      */
     generate<Input, Output>(request: GenerateRequest<Input>): Promise<RouterRunResult<Output>>;
+    /**
+     * Call an adapter's `generateObject` and, unless disabled, validate the
+     * result against the request's JSON Schema. A non-conforming object throws a
+     * {@link SchemaValidationError}, which `executePlan` records as a failed
+     * attempt — so the router falls through to the next routed model.
+     */
+    private generateValidatedObject;
     /** @deprecated Use {@link generate} — it infers structured output from a
      *  `schema` in the request. `run` remains as a thin alias. */
     run<Input, Output>(request: GenerateObjectRequest<Input>): Promise<RouterRunResult<Output>>;
@@ -512,6 +540,30 @@ declare class ModelRouter {
     generateText<Input>(request: GenerateTextRequest<Input>): Promise<string>;
     private executePlan;
 }
+
+/**
+ * A tiny, dependency-free validator for the common subset of JSON Schema that
+ * structured-output requests use. It is intentionally NOT a full JSON Schema
+ * implementation — it covers what models are actually constrained to produce
+ * (types, properties, required, enums, items, composition) so the router can
+ * honor its "schema-validated object" contract without pulling in a heavy
+ * dependency or coupling to any one schema library.
+ *
+ * Anything it doesn't recognize is treated permissively (no false negatives):
+ * unknown keywords, boolean sub-schemas, and non-JSON-Schema values (e.g. a Zod
+ * schema, which the adapter validates itself) simply pass.
+ */
+/**
+ * Does `schema` look like a JSON Schema we can validate against? Used so the
+ * router only enforces validation when given an actual JSON Schema, leaving
+ * other schema representations (Zod, etc.) to the adapter.
+ */
+declare const looksLikeJsonSchema: (schema: unknown) => schema is Record<string, unknown>;
+/**
+ * Validate `value` against a JSON Schema. Returns a list of human-readable
+ * issues (with dotted paths); an empty array means the value conforms.
+ */
+declare const validateAgainstJsonSchema: (value: unknown, schema: unknown) => string[];
 
 interface CallbackProviderOptions {
     readonly providerId: string;
@@ -557,5 +609,5 @@ declare const apiKeyEnvVarsFor: (providerId: string) => readonly string[];
  */
 declare const hasApiKey: (providerId: string, options?: HasApiKeyOptions) => boolean;
 
-export { type ByBenchmarkOptions, type CallbackProviderOptions, type CapabilityCatalog, type CapabilityOverride, type GenerateImageRequest, type GenerateObjectRequest, type GenerateRequest, type GenerateTextRequest, type GeneratedImage, type HasApiKeyOptions, type LatencyClass, type LoadBalanceOptions, type LoadBalanceStrategy, type ModelCapability, type ModelFeature, type ModelLimits, type ModelModality, type ModelPricing, ModelRouter, ModelRouterError, type ModelRouterOptions, ModelsDevCapabilityCatalog, type ProviderAdapter, type ProviderGenerateImageRequest, type ProviderGenerateObjectRequest, type ProviderGenerateTextRequest, type RankedModel, type RejectedModel, type RoutePlan, type RouterAttempt, type RouterRunResult, type RoutingPolicy, type RoutingPolicyContext, type RoutingPreference, StaticCapabilityCatalog, type TaskConstraints, type TaskRequest, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, createCallbackProviderAdapter, createCapabilityCatalog, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, loadBalance, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, qualityScore, roundRobin };
+export { type ByBenchmarkOptions, type CallbackProviderOptions, type CapabilityCatalog, type CapabilityOverride, type GenerateImageRequest, type GenerateObjectRequest, type GenerateRequest, type GenerateTextRequest, type GeneratedImage, type HasApiKeyOptions, type LatencyClass, type LoadBalanceOptions, type LoadBalanceStrategy, type ModelCapability, type ModelFeature, type ModelLimits, type ModelModality, type ModelPricing, ModelRouter, ModelRouterError, type ModelRouterOptions, ModelsDevCapabilityCatalog, type ProviderAdapter, type ProviderGenerateImageRequest, type ProviderGenerateObjectRequest, type ProviderGenerateTextRequest, type RankedModel, type RejectedModel, type RoutePlan, type RouterAttempt, type RouterRunResult, type RoutingPolicy, type RoutingPolicyContext, type RoutingPreference, SchemaValidationError, StaticCapabilityCatalog, type TaskConstraints, type TaskRequest, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, createCallbackProviderAdapter, createCapabilityCatalog, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, qualityScore, roundRobin, validateAgainstJsonSchema };
 ```
