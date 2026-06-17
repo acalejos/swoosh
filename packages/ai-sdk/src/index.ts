@@ -2,7 +2,17 @@ import {
   createCallbackProviderAdapter,
   type ImagePart,
   type ProviderAdapter,
+  type TokenUsage,
 } from "@swoosh-dev/router";
+
+// Map an AI SDK result's usage (v4 prompt/completion or v5/v6 input/output) to
+// swoosh's TokenUsage and report it, if the adapter was given a reporter.
+const reportAiSdkUsage = (report: ((usage: TokenUsage) => void) | undefined, result: unknown): void => {
+  if (!report || !result || typeof result !== "object" || !("usage" in result)) return;
+  const u = (result as { usage?: Record<string, number | undefined> }).usage;
+  if (!u) return;
+  report({ inputTokens: u.inputTokens ?? u.promptTokens, outputTokens: u.outputTokens ?? u.completionTokens });
+};
 
 export interface AiSdkProviderOptions {
   readonly providerId: string;
@@ -64,6 +74,7 @@ export const createAiSdkProviderAdapter = (options: AiSdkProviderOptions): Provi
         images: request.images,
         metadata: request.metadata,
       });
+      reportAiSdkUsage(request.reportUsage, result);
       return result && typeof result === "object" && "object" in result
         ? (result as { object: unknown }).object
         : result;

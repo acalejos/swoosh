@@ -20,6 +20,7 @@ import {
   type RoutingPreference,
   SchemaValidationError,
   type TaskRequest,
+  type TokenUsage,
 } from "./types";
 import { looksLikeJsonSchema, validateAgainstJsonSchema } from "./schema";
 
@@ -318,10 +319,10 @@ export class ModelRouter {
     const run = await this.executePlan<readonly RerankedDocument[]>(
       plan,
       request,
-      (adapter, capability) =>
+      (adapter, capability, reportUsage) =>
         adapter.rerank
           ? adapter
-              .rerank<Input>({ ...request, model: capability })
+              .rerank<Input>({ ...request, model: capability, reportUsage })
               .then((scored) =>
                 [...scored]
                   .filter((s) => s.index >= 0 && s.index < request.documents.length)
@@ -352,6 +353,7 @@ export class ModelRouter {
       model,
       plan: run.plan,
       attempts: run.attempts,
+      usage: run.usage,
     };
   }
 
@@ -382,11 +384,12 @@ export class ModelRouter {
       return this.executePlan<Output>(
         plan,
         request,
-        (adapter, capability) =>
+        (adapter, capability, reportUsage) =>
           adapter.generateImage
             ? (adapter.generateImage<Input>({
                 ...request,
                 model: capability,
+                reportUsage,
               }) as Promise<Output>)
             : undefined,
         "Provider adapter cannot generate images.",
@@ -397,9 +400,9 @@ export class ModelRouter {
       return this.executePlan<Output>(
         plan,
         request,
-        (adapter, capability) =>
+        (adapter, capability, reportUsage) =>
           adapter.generateObject
-            ? this.generateValidatedObject<Input, Output>(adapter, capability, request)
+            ? this.generateValidatedObject<Input, Output>(adapter, capability, request, reportUsage)
             : undefined,
         "Provider adapter cannot generate objects.",
       );
@@ -408,12 +411,13 @@ export class ModelRouter {
     return this.executePlan<Output>(
       plan,
       request,
-      (adapter, capability) =>
+      (adapter, capability, reportUsage) =>
         adapter.generateText
           ? (adapter.generateText<Input>({
               ...request,
               prompt: request.prompt ?? "",
               model: capability,
+              reportUsage,
             }) as Promise<Output>)
           : undefined,
       "Provider adapter cannot generate text.",
@@ -430,10 +434,12 @@ export class ModelRouter {
     adapter: ProviderAdapter,
     capability: ModelCapability,
     request: GenerateObjectRequest<Input> | GenerateRequest<Input>,
+    reportUsage: (usage: TokenUsage) => void,
   ): Promise<Output> {
     const output = await adapter.generateObject!<Input, Output>({
       ...request,
       model: capability,
+      reportUsage,
     });
     if (
       this.options.validateStructuredOutput !== false &&
@@ -456,9 +462,9 @@ export class ModelRouter {
     return this.executePlan<Output>(
       plan,
       request,
-      (adapter, capability) =>
+      (adapter, capability, reportUsage) =>
         adapter.generateObject
-          ? this.generateValidatedObject<Input, Output>(adapter, capability, request)
+          ? this.generateValidatedObject<Input, Output>(adapter, capability, request, reportUsage)
           : undefined,
       "Provider adapter cannot generate objects.",
     );
@@ -471,9 +477,9 @@ export class ModelRouter {
     return this.executePlan<string>(
       plan,
       request,
-      (adapter, capability) =>
+      (adapter, capability, reportUsage) =>
         adapter.generateText
-          ? adapter.generateText<Input>({ ...request, model: capability })
+          ? adapter.generateText<Input>({ ...request, model: capability, reportUsage })
           : undefined,
       "Provider adapter cannot generate text.",
     );
@@ -495,6 +501,7 @@ export class ModelRouter {
     invoke: (
       adapter: ProviderAdapter,
       capability: ModelCapability,
+      reportUsage: (usage: TokenUsage) => void,
     ) => Promise<Output> | undefined,
     unsupportedReason: string,
   ): Promise<RouterRunResult<Output>> {
@@ -507,21 +514,26 @@ export class ModelRouter {
       const { providerId, modelId } = route.capability;
       // retry the SAME route (with backoff) before falling through to the next
       for (let tryIndex = 0; tryIndex < maxTries; tryIndex++) {
-        const pending = adapter ? invoke(adapter, route.capability) : undefined;
+        let usage: TokenUsage | undefined;
+        const reportUsage = (reported: TokenUsage) => {
+          usage = reported;
+        };
+        const pending = adapter ? invoke(adapter, route.capability, reportUsage) : undefined;
         if (!pending) {
           attempts.push({ providerId, modelId, ok: false, error: unsupportedReason });
           break; // adapter can't perform this op — next route, don't retry
         }
         try {
           const output = await (request.timeout ? withTimeout(pending, request.timeout) : pending);
-          attempts.push({ providerId, modelId, ok: true });
-          return { output, plan, attempts };
+          attempts.push({ providerId, modelId, ok: true, usage });
+          return { output, plan, attempts, usage };
         } catch (cause) {
           attempts.push({
             providerId,
             modelId,
             ok: false,
             error: cause instanceof Error ? cause.message : String(cause),
+            usage,
           });
           const canRetry = tryIndex < maxTries - 1 && (request.retry?.retryOn?.(cause) ?? true);
           if (!canRetry) break; // out of retries (or non-retryable) — next route

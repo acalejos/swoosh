@@ -331,6 +331,8 @@ interface GenerateObjectRequest<Input = unknown> extends TaskRequest<Input> {
 }
 interface ProviderGenerateObjectRequest<Input = unknown> extends GenerateObjectRequest<Input> {
     readonly model: ModelCapability;
+    /** Router-injected: an adapter may call this to report token usage for the call. */
+    readonly reportUsage?: (usage: TokenUsage) => void;
 }
 interface GenerateTextRequest<Input = unknown> extends TaskRequest<Input> {
     readonly prompt: string;
@@ -338,6 +340,8 @@ interface GenerateTextRequest<Input = unknown> extends TaskRequest<Input> {
 }
 interface ProviderGenerateTextRequest<Input = unknown> extends GenerateTextRequest<Input> {
     readonly model: ModelCapability;
+    /** Router-injected: an adapter may call this to report token usage for the call. */
+    readonly reportUsage?: (usage: TokenUsage) => void;
 }
 /** A generated image, returned by an adapter's `generateImage`. */
 interface GeneratedImage {
@@ -350,6 +354,8 @@ interface GenerateImageRequest<Input = unknown> extends TaskRequest<Input> {
 }
 interface ProviderGenerateImageRequest<Input = unknown> extends GenerateImageRequest<Input> {
     readonly model: ModelCapability;
+    /** Router-injected: an adapter may call this to report token usage for the call. */
+    readonly reportUsage?: (usage: TokenUsage) => void;
 }
 /**
  * The unified generation request used by {@link ModelRouter.generate}. The kind
@@ -409,16 +415,25 @@ interface RoutePlan {
         readonly costUsd?: number;
     };
 }
+/** Token usage for a single model call, as reported by the adapter. */
+interface TokenUsage {
+    readonly inputTokens?: number;
+    readonly outputTokens?: number;
+}
 interface RouterAttempt {
     readonly providerId: string;
     readonly modelId: string;
     readonly ok: boolean;
     readonly error?: string;
+    /** Tokens used, if the adapter reported them via `reportUsage`. */
+    readonly usage?: TokenUsage;
 }
 interface RouterRunResult<Output> {
     readonly output: Output;
     readonly plan: RoutePlan;
     readonly attempts: readonly RouterAttempt[];
+    /** Token usage of the successful attempt, if the adapter reported it. */
+    readonly usage?: TokenUsage;
 }
 /**
  * Reorder `documents` by relevance to `query`. Mirrors the generation requests:
@@ -450,6 +465,8 @@ interface RerankRequest<Input = unknown> {
 }
 interface ProviderRerankRequest<Input = unknown> extends RerankRequest<Input> {
     readonly model: ModelCapability;
+    /** Router-injected: an adapter may call this to report token usage for the call. */
+    readonly reportUsage?: (usage: TokenUsage) => void;
 }
 /** A relevance score for one input document, by its original index. */
 interface RerankScore {
@@ -468,6 +485,7 @@ interface RerankResult {
     readonly model: ModelCapability;
     readonly plan: RoutePlan;
     readonly attempts: readonly RouterAttempt[];
+    readonly usage?: TokenUsage;
 }
 interface RoutingPolicyContext {
     readonly request: TaskRequest;
@@ -790,10 +808,11 @@ interface SessionOptions {
     /** Once the budget is spent: downgrade to `"cheapest"` (default) or `"throw"`. */
     readonly onBudgetExceeded?: "cheapest" | "throw";
 }
-/** A result to feed back — anything carrying a plan and (optionally) the run attempts. */
+/** A result to feed back — anything carrying a plan, the run attempts, and usage. */
 interface SessionResult {
     readonly plan: RoutePlan;
     readonly attempts?: readonly RouterAttempt[];
+    readonly usage?: TokenUsage;
 }
 interface Session {
     /** Wrap a base preference with the session's stateful policies (health → sticky, or budget override). */
@@ -817,6 +836,29 @@ interface Session {
  * Opt into only what you need; with no options it's a no-op passthrough.
  */
 declare const createSession: (options?: SessionOptions) => Session;
+interface UsageMeter {
+    /** Accumulate a run/route result into the running totals. */
+    record(result: SessionResult): void;
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+    /** Total cost — actual (from reported usage) where available, else plan estimate. */
+    readonly costUsd: number;
+    /** Number of results recorded. */
+    readonly calls: number;
+    reset(): void;
+}
+/**
+ * In-process cost/token accounting — the lean alternative to a spend database.
+ * Feed it run results; read the running totals. No server, no persistence; if
+ * you want durability, snapshot `{ inputTokens, outputTokens, costUsd, calls }`
+ * yourself. Like {@link createSession}, it reads only the generic plan + usage.
+ *
+ *     const meter = createUsageMeter();
+ *     const res = await router.run(request);
+ *     meter.record(res);
+ *     meter.costUsd; // running spend
+ */
+declare const createUsageMeter: () => UsageMeter;
 
 /**
  * A tiny, dependency-free validator for the common subset of JSON Schema that
@@ -887,5 +929,5 @@ declare const apiKeyEnvVarsFor: (providerId: string) => readonly string[];
  */
 declare const hasApiKey: (providerId: string, options?: HasApiKeyOptions) => boolean;
 
-export { type BenchmarkScores, type BenchmarkSource, type ByBenchmarkOptions, type ByCoverageOptions, type CallbackProviderOptions, type CapabilityCatalog, type CapabilityOverride, type GenerateImageRequest, type GenerateObjectRequest, type GenerateRequest, type GenerateTextRequest, type GeneratedImage, type HasApiKeyOptions, type HealthTracker, type HealthTrackerOptions, type ImageInput, type ImagePart, type LatencyClass, type LlmRerankerOptions, type LoadBalanceOptions, type LoadBalanceStrategy, type ModelCapability, type ModelFeature, type ModelLimits, type ModelModality, type ModelPricing, ModelRouter, ModelRouterError, type ModelRouterOptions, ModelsDevCapabilityCatalog, type ProviderAdapter, type ProviderGenerateImageRequest, type ProviderGenerateObjectRequest, type ProviderGenerateTextRequest, type ProviderRerankRequest, type RankedModel, type RejectedModel, type RerankRequest, type RerankResult, type RerankScore, type RerankedDocument, type RetryOptions, type RoutePlan, type RouterAttempt, type RouterRunResult, type RoutingPolicy, type RoutingPolicyContext, type RoutingPreference, SchemaValidationError, type Session, type SessionOptions, type SessionResult, StaticCapabilityCatalog, type StickyOptions, type TaskConstraints, type TaskRequest, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, byCoverage, createCallbackProviderAdapter, createCapabilityCatalog, createHealthTracker, createSession, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, healthAware, llmReranker, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, pin, qualityCap, qualityScore, roundRobin, sticky, validateAgainstJsonSchema };
+export { type BenchmarkScores, type BenchmarkSource, type ByBenchmarkOptions, type ByCoverageOptions, type CallbackProviderOptions, type CapabilityCatalog, type CapabilityOverride, type GenerateImageRequest, type GenerateObjectRequest, type GenerateRequest, type GenerateTextRequest, type GeneratedImage, type HasApiKeyOptions, type HealthTracker, type HealthTrackerOptions, type ImageInput, type ImagePart, type LatencyClass, type LlmRerankerOptions, type LoadBalanceOptions, type LoadBalanceStrategy, type ModelCapability, type ModelFeature, type ModelLimits, type ModelModality, type ModelPricing, ModelRouter, ModelRouterError, type ModelRouterOptions, ModelsDevCapabilityCatalog, type ProviderAdapter, type ProviderGenerateImageRequest, type ProviderGenerateObjectRequest, type ProviderGenerateTextRequest, type ProviderRerankRequest, type RankedModel, type RejectedModel, type RerankRequest, type RerankResult, type RerankScore, type RerankedDocument, type RetryOptions, type RoutePlan, type RouterAttempt, type RouterRunResult, type RoutingPolicy, type RoutingPolicyContext, type RoutingPreference, SchemaValidationError, type Session, type SessionOptions, type SessionResult, StaticCapabilityCatalog, type StickyOptions, type TaskConstraints, type TaskRequest, type TokenUsage, type UsageMeter, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, byCoverage, createCallbackProviderAdapter, createCapabilityCatalog, createHealthTracker, createSession, createStaticCapabilityCatalog, createUsageMeter, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, healthAware, llmReranker, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, pin, qualityCap, qualityScore, roundRobin, sticky, validateAgainstJsonSchema };
 ```

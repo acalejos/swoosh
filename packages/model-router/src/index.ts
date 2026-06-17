@@ -35,6 +35,7 @@ export {
   type RoutingPreference,
   type TaskConstraints,
   type TaskRequest,
+  type TokenUsage,
 } from "./types";
 export {
   type CapabilityOverride,
@@ -75,9 +76,11 @@ export { ModelRouter, type ModelRouterOptions } from "./router";
 export { llmReranker, type LlmRerankerOptions } from "./rerank";
 export {
   createSession,
+  createUsageMeter,
   type Session,
   type SessionOptions,
   type SessionResult,
+  type UsageMeter,
 } from "./session";
 export { looksLikeJsonSchema, validateAgainstJsonSchema } from "./schema";
 export {

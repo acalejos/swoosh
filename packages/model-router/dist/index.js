@@ -615,7 +615,7 @@ var ModelRouter = class {
     const run = await this.executePlan(
       plan,
       request,
-      (adapter, capability) => adapter.rerank ? adapter.rerank({ ...request, model: capability }).then(
+      (adapter, capability, reportUsage) => adapter.rerank ? adapter.rerank({ ...request, model: capability, reportUsage }).then(
         (scored) => [...scored].filter((s) => s.index >= 0 && s.index < request.documents.length).map(
           (s) => ({
             index: s.index,
@@ -635,7 +635,8 @@ var ModelRouter = class {
       results: run.output,
       model,
       plan: run.plan,
-      attempts: run.attempts
+      attempts: run.attempts,
+      usage: run.usage
     };
   }
   /**
@@ -662,9 +663,10 @@ var ModelRouter = class {
       return this.executePlan(
         plan,
         request,
-        (adapter, capability) => adapter.generateImage ? adapter.generateImage({
+        (adapter, capability, reportUsage) => adapter.generateImage ? adapter.generateImage({
           ...request,
-          model: capability
+          model: capability,
+          reportUsage
         }) : void 0,
         "Provider adapter cannot generate images."
       );
@@ -673,17 +675,18 @@ var ModelRouter = class {
       return this.executePlan(
         plan,
         request,
-        (adapter, capability) => adapter.generateObject ? this.generateValidatedObject(adapter, capability, request) : void 0,
+        (adapter, capability, reportUsage) => adapter.generateObject ? this.generateValidatedObject(adapter, capability, request, reportUsage) : void 0,
         "Provider adapter cannot generate objects."
       );
     }
     return this.executePlan(
       plan,
       request,
-      (adapter, capability) => adapter.generateText ? adapter.generateText({
+      (adapter, capability, reportUsage) => adapter.generateText ? adapter.generateText({
         ...request,
         prompt: request.prompt ?? "",
-        model: capability
+        model: capability,
+        reportUsage
       }) : void 0,
       "Provider adapter cannot generate text."
     );
@@ -694,10 +697,11 @@ var ModelRouter = class {
    * {@link SchemaValidationError}, which `executePlan` records as a failed
    * attempt — so the router falls through to the next routed model.
    */
-  async generateValidatedObject(adapter, capability, request) {
+  async generateValidatedObject(adapter, capability, request, reportUsage) {
     const output = await adapter.generateObject({
       ...request,
-      model: capability
+      model: capability,
+      reportUsage
     });
     if (this.options.validateStructuredOutput !== false && looksLikeJsonSchema(request.schema)) {
       const issues = validateAgainstJsonSchema(output, request.schema);
@@ -714,7 +718,7 @@ var ModelRouter = class {
     return this.executePlan(
       plan,
       request,
-      (adapter, capability) => adapter.generateObject ? this.generateValidatedObject(adapter, capability, request) : void 0,
+      (adapter, capability, reportUsage) => adapter.generateObject ? this.generateValidatedObject(adapter, capability, request, reportUsage) : void 0,
       "Provider adapter cannot generate objects."
     );
   }
@@ -725,7 +729,7 @@ var ModelRouter = class {
     return this.executePlan(
       plan,
       request,
-      (adapter, capability) => adapter.generateText ? adapter.generateText({ ...request, model: capability }) : void 0,
+      (adapter, capability, reportUsage) => adapter.generateText ? adapter.generateText({ ...request, model: capability, reportUsage }) : void 0,
       "Provider adapter cannot generate text."
     );
   }
@@ -745,21 +749,26 @@ var ModelRouter = class {
       const adapter = this.providers.get(route.capability.providerId);
       const { providerId, modelId } = route.capability;
       for (let tryIndex = 0; tryIndex < maxTries; tryIndex++) {
-        const pending = adapter ? invoke(adapter, route.capability) : void 0;
+        let usage;
+        const reportUsage = (reported) => {
+          usage = reported;
+        };
+        const pending = adapter ? invoke(adapter, route.capability, reportUsage) : void 0;
         if (!pending) {
           attempts.push({ providerId, modelId, ok: false, error: unsupportedReason });
           break;
         }
         try {
           const output = await (request.timeout ? withTimeout(pending, request.timeout) : pending);
-          attempts.push({ providerId, modelId, ok: true });
-          return { output, plan, attempts };
+          attempts.push({ providerId, modelId, ok: true, usage });
+          return { output, plan, attempts, usage };
         } catch (cause) {
           attempts.push({
             providerId,
             modelId,
             ok: false,
-            error: cause instanceof Error ? cause.message : String(cause)
+            error: cause instanceof Error ? cause.message : String(cause),
+            usage
           });
           const canRetry = tryIndex < maxTries - 1 && (request.retry?.retryOn?.(cause) ?? true);
           if (!canRetry) break;
@@ -825,6 +834,21 @@ var llmReranker = (options) => async (request) => {
 };
 
 // src/session.ts
+var servedCapability = (plan, attempts) => {
+  const winner = [...attempts ?? []].reverse().find((a) => a.ok);
+  if (!winner) return plan.selected.capability;
+  return [plan.selected, ...plan.fallbacks].find(
+    (r) => r.capability.providerId === winner.providerId && r.capability.modelId === winner.modelId
+  )?.capability ?? plan.selected.capability;
+};
+var resultCost = (result) => {
+  if (result.usage) {
+    const cap = servedCapability(result.plan, result.attempts);
+    const cost = estimatedCostUsd(cap, result.usage.inputTokens ?? 0, result.usage.outputTokens ?? 0);
+    if (cost !== void 0) return cost;
+  }
+  return result.plan.estimate.costUsd ?? 0;
+};
 var asPolicy = (base) => typeof base === "function" ? base : namedPolicy(base);
 var idOf = (providerId, modelId) => `${providerId}/${modelId}`;
 var createSession = (options = {}) => {
@@ -851,7 +875,7 @@ var createSession = (options = {}) => {
     },
     record(result) {
       options.health?.record(result.attempts ?? []);
-      spent += result.plan.estimate.costUsd ?? 0;
+      spent += resultCost(result);
       const served = [...result.attempts ?? []].reverse().find((a) => a.ok);
       warm = served ? idOf(served.providerId, served.modelId) : idOf(result.plan.selected.capability.providerId, result.plan.selected.capability.modelId);
     },
@@ -865,6 +889,38 @@ var createSession = (options = {}) => {
       spent = 0;
       warm = void 0;
       options.health?.reset();
+    }
+  };
+};
+var createUsageMeter = () => {
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let costUsd = 0;
+  let calls = 0;
+  return {
+    record(result) {
+      inputTokens += result.usage?.inputTokens ?? 0;
+      outputTokens += result.usage?.outputTokens ?? 0;
+      costUsd += resultCost(result);
+      calls += 1;
+    },
+    get inputTokens() {
+      return inputTokens;
+    },
+    get outputTokens() {
+      return outputTokens;
+    },
+    get costUsd() {
+      return costUsd;
+    },
+    get calls() {
+      return calls;
+    },
+    reset() {
+      inputTokens = 0;
+      outputTokens = 0;
+      costUsd = 0;
+      calls = 0;
     }
   };
 };
@@ -909,4 +965,4 @@ var hasApiKey = (providerId, options = {}) => {
   });
 };
 
-export { ModelRouter, ModelRouterError, ModelsDevCapabilityCatalog, SchemaValidationError, StaticCapabilityCatalog, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, byCoverage, createCallbackProviderAdapter, createCapabilityCatalog, createHealthTracker, createSession, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, healthAware, llmReranker, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, pin, qualityCap, qualityScore, roundRobin, sticky, validateAgainstJsonSchema };
+export { ModelRouter, ModelRouterError, ModelsDevCapabilityCatalog, SchemaValidationError, StaticCapabilityCatalog, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, byCoverage, createCallbackProviderAdapter, createCapabilityCatalog, createHealthTracker, createSession, createStaticCapabilityCatalog, createUsageMeter, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, healthAware, llmReranker, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, pin, qualityCap, qualityScore, roundRobin, sticky, validateAgainstJsonSchema };

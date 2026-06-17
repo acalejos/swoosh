@@ -135,6 +135,8 @@ export interface ProviderGenerateObjectRequest<
   Input = unknown,
 > extends GenerateObjectRequest<Input> {
   readonly model: ModelCapability;
+  /** Router-injected: an adapter may call this to report token usage for the call. */
+  readonly reportUsage?: (usage: TokenUsage) => void;
 }
 
 export interface GenerateTextRequest<Input = unknown> extends TaskRequest<Input> {
@@ -144,6 +146,8 @@ export interface GenerateTextRequest<Input = unknown> extends TaskRequest<Input>
 
 export interface ProviderGenerateTextRequest<Input = unknown> extends GenerateTextRequest<Input> {
   readonly model: ModelCapability;
+  /** Router-injected: an adapter may call this to report token usage for the call. */
+  readonly reportUsage?: (usage: TokenUsage) => void;
 }
 
 /** A generated image, returned by an adapter's `generateImage`. */
@@ -160,6 +164,8 @@ export interface GenerateImageRequest<Input = unknown> extends TaskRequest<Input
 export interface ProviderGenerateImageRequest<Input = unknown>
   extends GenerateImageRequest<Input> {
   readonly model: ModelCapability;
+  /** Router-injected: an adapter may call this to report token usage for the call. */
+  readonly reportUsage?: (usage: TokenUsage) => void;
 }
 
 /**
@@ -232,17 +238,27 @@ export interface RoutePlan {
   };
 }
 
+/** Token usage for a single model call, as reported by the adapter. */
+export interface TokenUsage {
+  readonly inputTokens?: number;
+  readonly outputTokens?: number;
+}
+
 export interface RouterAttempt {
   readonly providerId: string;
   readonly modelId: string;
   readonly ok: boolean;
   readonly error?: string;
+  /** Tokens used, if the adapter reported them via `reportUsage`. */
+  readonly usage?: TokenUsage;
 }
 
 export interface RouterRunResult<Output> {
   readonly output: Output;
   readonly plan: RoutePlan;
   readonly attempts: readonly RouterAttempt[];
+  /** Token usage of the successful attempt, if the adapter reported it. */
+  readonly usage?: TokenUsage;
 }
 
 /**
@@ -276,6 +292,8 @@ export interface RerankRequest<Input = unknown> {
 
 export interface ProviderRerankRequest<Input = unknown> extends RerankRequest<Input> {
   readonly model: ModelCapability;
+  /** Router-injected: an adapter may call this to report token usage for the call. */
+  readonly reportUsage?: (usage: TokenUsage) => void;
 }
 
 /** A relevance score for one input document, by its original index. */
@@ -297,6 +315,7 @@ export interface RerankResult {
   readonly model: ModelCapability;
   readonly plan: RoutePlan;
   readonly attempts: readonly RouterAttempt[];
+  readonly usage?: TokenUsage;
 }
 
 export interface RoutingPolicyContext {

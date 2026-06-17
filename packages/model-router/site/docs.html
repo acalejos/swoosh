@@ -668,6 +668,14 @@ health.record(res.attempts);  <span class="tk-c">// a 429 benches that route for
 <span class="tk-k">const</span> res = <span class="tk-k">await</span> router.run({ ...request, preference: session.preference(<span class="tk-s">"balanced"</span>) });
 session.record(res);     <span class="tk-c">// updates health, spend, warm model</span>
 session.remaining;       <span class="tk-c">// budget left</span></code></pre>
+      <h3>Usage &amp; cost metering <span class="pill">no DB</span></h3>
+      <p>Adapters report token usage through a router-injected <code>reportUsage</code> — the <code>@swoosh-dev/ai-sdk</code> adapter wires it automatically for <code>generateObject</code> — so usage surfaces on <code>result.usage</code> and each attempt. <code>createUsageMeter()</code> tallies tokens and <em>actual</em> cost across runs (Session budgets use it too): the lean alternative to a spend database — snapshot the totals yourself if you need durability.</p>
+      <pre><code><span class="tk-k">import</span> { createUsageMeter } <span class="tk-k">from</span> <span class="tk-s">"@swoosh-dev/router"</span>;
+
+<span class="tk-k">const</span> meter = createUsageMeter();
+<span class="tk-k">const</span> res = <span class="tk-k">await</span> router.run(request);
+meter.record(res);
+meter.inputTokens;  meter.outputTokens;  meter.costUsd;  meter.calls;</code></pre>
       <div class="note"><b>Lean by design.</b> These are the LiteLLM pieces worth having — fallback, retry, cooldown, key rotation — as composable functions, not a proxy. No gateway, virtual keys, or spend DB; swoosh stays an embeddable library.</div>
     </section>
 
