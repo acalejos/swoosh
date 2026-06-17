@@ -1,5 +1,9 @@
 node_modules/
 dist/
+# Exception: @swoosh-dev/router ships its built dist in-repo so it can be
+# consumed as a git dependency (subdir git deps, no npm publish required).
+!packages/model-router/dist/
+!packages/model-router/dist/**
 *.log
 .DS_Store
 .env
