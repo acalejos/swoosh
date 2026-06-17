@@ -4,6 +4,8 @@ import type {
   ProviderGenerateImageRequest,
   ProviderGenerateObjectRequest,
   ProviderGenerateTextRequest,
+  ProviderRerankRequest,
+  RerankScore,
 } from "./types";
 
 export interface CallbackProviderOptions {
@@ -15,6 +17,9 @@ export interface CallbackProviderOptions {
   readonly generateImage?: (
     request: ProviderGenerateImageRequest,
   ) => Promise<GeneratedImage> | GeneratedImage;
+  readonly rerank?: (
+    request: ProviderRerankRequest,
+  ) => Promise<readonly RerankScore[]> | readonly RerankScore[];
 }
 
 export const createCallbackProviderAdapter = (
@@ -32,4 +37,5 @@ export const createCallbackProviderAdapter = (
   generateImage: options.generateImage
     ? async (request) => options.generateImage!(request)
     : undefined,
+  rerank: options.rerank ? async (request) => options.rerank!(request) : undefined,
 });

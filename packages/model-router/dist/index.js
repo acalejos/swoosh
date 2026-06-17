@@ -385,6 +385,11 @@ var ModelRouter = class {
         )
       });
     }
+    return this.finalizePlan(request, candidates, rejected, inputTokens, outputTokens);
+  }
+  /** Shared tail of {@link plan} / {@link planRerank}: rank the surviving
+   *  candidates by preference (or a custom policy) and assemble the RoutePlan. */
+  async finalizePlan(request, candidates, rejected, inputTokens, outputTokens) {
     if (candidates.length === 0) {
       throw new ModelRouterError(
         `No model supports task "${request.task}" with the requested constraints.`
@@ -409,6 +414,121 @@ var ModelRouter = class {
         outputTokens,
         costUsd: selected.estimatedCostUsd
       }
+    };
+  }
+  /**
+   * Plan a rerank: filter the catalog to reranker models (a `rerank` capability
+   * + an adapter that implements `rerank`) satisfying `requiresFeatures` (e.g.
+   * `["explanations"]`) and constraints, then rank by preference. Inspectable
+   * like {@link plan} — every rejected model carries a reason.
+   */
+  async planRerank(request) {
+    const capabilities = await this.options.catalog.listCapabilities();
+    const rejected = [];
+    const inputTokens = request.estimatedInputTokens ?? DEFAULT_INPUT_TOKENS;
+    const outputTokens = request.estimatedOutputTokens ?? 0;
+    const requiredFeatures = request.requiresFeatures ?? [];
+    const denied = new Set(request.constraints?.deniedProviderIds ?? []);
+    const allowed = request.constraints?.allowedProviderIds ? new Set(request.constraints.allowedProviderIds) : void 0;
+    const named = typeof request.preference === "string" ? request.preference : this.options.defaultPreference ?? "balanced";
+    const candidates = [];
+    for (const capability of capabilities) {
+      const adapter = this.providers.get(capability.providerId);
+      if (!providerAvailable(adapter)) {
+        reject(rejected, capability, "No available provider adapter.");
+        continue;
+      }
+      if (!capability.rerank) {
+        reject(rejected, capability, "Model is not a reranker.");
+        continue;
+      }
+      if (!adapter?.rerank) {
+        reject(rejected, capability, "Provider adapter cannot rerank.");
+        continue;
+      }
+      if (allowed && !allowed.has(capability.providerId)) {
+        reject(rejected, capability, "Provider is not allowed by policy.");
+        continue;
+      }
+      if (denied.has(capability.providerId)) {
+        reject(rejected, capability, "Provider is denied by policy.");
+        continue;
+      }
+      const missingFeature = requiredFeatures.find(
+        (feature) => !capability.features.includes(feature)
+      );
+      if (missingFeature) {
+        reject(rejected, capability, `Missing required feature: ${missingFeature}.`);
+        continue;
+      }
+      const maxDocuments = capability.rerank.maxDocuments;
+      if (maxDocuments !== void 0 && request.documents.length > maxDocuments) {
+        reject(
+          rejected,
+          capability,
+          `Too many documents (${request.documents.length} > ${maxDocuments}).`
+        );
+        continue;
+      }
+      const cost = estimatedCostUsd(capability, inputTokens, outputTokens);
+      if (cost !== void 0 && request.constraints?.maxCostUsd !== void 0 && cost > request.constraints.maxCostUsd) {
+        reject(rejected, capability, "Estimated cost exceeds policy.");
+        continue;
+      }
+      const latency = latencyWeight[capability.latencyClass ?? "standard"];
+      const score = qualityScore(capability) + latency - (cost ?? 0) * 20;
+      candidates.push({
+        capability,
+        score,
+        estimatedCostUsd: cost,
+        reason: explainCandidate(capability, named)
+      });
+    }
+    const policyRequest = {
+      task: request.task,
+      input: request.input ?? request.query,
+      inputModalities: ["text"],
+      requiresFeatures: request.requiresFeatures,
+      preference: request.preference,
+      constraints: request.constraints,
+      estimatedInputTokens: request.estimatedInputTokens,
+      estimatedOutputTokens: request.estimatedOutputTokens
+    };
+    return this.finalizePlan(policyRequest, candidates, rejected, inputTokens, outputTokens);
+  }
+  /**
+   * Rerank `request.documents` by relevance to `request.query`, routing to the
+   * best reranker and falling back automatically. The result's documents are
+   * sorted by descending score and capped at `topK`; `reason` is populated only
+   * when the chosen reranker supports `"explanations"`.
+   */
+  async rerank(request) {
+    const plan = await this.planRerank(request);
+    const topK = request.topK ?? request.documents.length;
+    const run = await this.executePlan(
+      plan,
+      request.task,
+      (adapter, capability) => adapter.rerank ? adapter.rerank({ ...request, model: capability }).then(
+        (scored) => [...scored].filter((s) => s.index >= 0 && s.index < request.documents.length).map(
+          (s) => ({
+            index: s.index,
+            document: request.documents[s.index],
+            score: s.score,
+            reason: s.reason
+          })
+        ).sort((a, b) => b.score - a.score).slice(0, topK)
+      ) : void 0,
+      "Provider adapter cannot rerank."
+    );
+    const winner = run.attempts[run.attempts.length - 1];
+    const model = [plan.selected, ...plan.fallbacks].find(
+      (route) => route.capability.providerId === winner?.providerId && route.capability.modelId === winner?.modelId
+    )?.capability ?? plan.selected.capability;
+    return {
+      results: run.output,
+      model,
+      plan: run.plan,
+      attempts: run.attempts
     };
   }
   /**
@@ -553,7 +673,8 @@ var createCallbackProviderAdapter = (options) => ({
   isAvailable: options.isAvailable,
   generateObject: options.generateObject ? async (request) => await options.generateObject(request) : void 0,
   generateText: options.generateText ? async (request) => options.generateText(request) : void 0,
-  generateImage: options.generateImage ? async (request) => options.generateImage(request) : void 0
+  generateImage: options.generateImage ? async (request) => options.generateImage(request) : void 0,
+  rerank: options.rerank ? async (request) => options.rerank(request) : void 0
 });
 
 // src/env.ts

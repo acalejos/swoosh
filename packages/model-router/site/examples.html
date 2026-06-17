@@ -181,6 +181,7 @@
       <a href="#ex-10-benchmark-routing">10 · Benchmark routing</a>
       <a href="#ex-11-llm-judge">11 · LLM judge</a>
       <a href="#ex-12-unified-generate">12 · Unified generate</a>
+      <a href="#ex-13-reranking">13 · Reranking</a>
     </div>
     <div class="group">
       <span>More</span>
@@ -191,7 +192,7 @@
   <main>
     <div class="doc-hero">
       <h1>Examples</h1>
-      <p>12 runnable scripts that exercise swoosh end to end. They run offline with simulated providers — no API keys — so you can read, run, and tweak them immediately. From the repo root: <code>bun packages/model-router/examples/&lt;file&gt;</code>.</p>
+      <p>13 runnable scripts that exercise swoosh end to end. They run offline with simulated providers — no API keys — so you can read, run, and tweak them immediately. From the repo root: <code>bun packages/model-router/examples/&lt;file&gt;</code>.</p>
     </div>
     <section class="doc" id="ex-01-quickstart">
       <h2><span class="no">01</span> Quickstart</h2>
@@ -875,6 +876,125 @@ console.log(
   <span class="tk-s">`${image.output.mediaType}, ${image.output.base64.length} b64 chars`</span>,
   <span class="tk-s">`(via ${image.attempts.at(-1)?.providerId})`</span>,
 );</code></pre>
+    </section>
+    <section class="doc" id="ex-13-reranking">
+      <h2><span class="no">13</span> Reranking</h2>
+      <p class="lead">Rerank search candidates by relevance to a query. Reranking is a task, not a modality: route on "rerank" and the adapter decides whether a dedicated cross-encoder (Cohere/Voyage — cheap, scores only) or an LLM reranker (pricier, returns per-result rationales) does the work. "explanations" is an intent: require it to route to a reason-capable reranker. Unlike embeddings, rerankers are stateless, so cross-model fallback is safe.</p>
+      <p><code>bun packages/model-router/examples/13-reranking.ts</code> &middot; <a class="inline" href="https://github.com/acalejos/swoosh/blob/main/packages/model-router/examples/13-reranking.ts">View source &#8599;</a></p>
+      <pre><code><span class="tk-c">// Rerank search candidates by relevance to a query. Reranking is a task, not a</span>
+<span class="tk-c">// modality: route on "rerank" and the adapter decides whether a dedicated</span>
+<span class="tk-c">// cross-encoder (Cohere/Voyage — cheap, scores only) or an LLM reranker (pricier,</span>
+<span class="tk-c">// returns per-result rationales) does the work. "explanations" is an intent:</span>
+<span class="tk-c">// require it to route to a reason-capable reranker. Unlike embeddings, rerankers</span>
+<span class="tk-c">// are stateless, so cross-model fallback is safe.</span>
+<span class="tk-c">// Run from the repo root: bun packages/model-router/examples/13-reranking.ts</span>
+<span class="tk-k">import</span> {
+  createCallbackProviderAdapter,
+  createStaticCapabilityCatalog,
+  <span class="tk-t">ModelRouter</span>,
+  <span class="tk-k">type</span> <span class="tk-t">ModelCapability</span>,
+} <span class="tk-k">from</span> <span class="tk-s">"@swoosh-dev/router"</span>;
+<span class="tk-k">import</span> { printAttempts, printPlan } <span class="tk-k">from</span> <span class="tk-s">"./shared/print"</span>;
+
+<span class="tk-k">const</span> reranker = (
+  id: string,
+  extra: <span class="tk-t">Pick</span>&lt;<span class="tk-t">ModelCapability</span>, <span class="tk-s">"rerank"</span> | <span class="tk-s">"features"</span> | <span class="tk-s">"pricing"</span> | <span class="tk-s">"qualityScore"</span>&gt;,
+): <span class="tk-t">ModelCapability</span> =&gt; {
+  <span class="tk-k">const</span> [providerId, modelId] = id.split(<span class="tk-s">"/"</span>) <span class="tk-k">as</span> [string, string];
+  <span class="tk-k">return</span> {
+    providerId,
+    providerName: providerId,
+    modelId,
+    modelName: modelId,
+    inputModalities: [<span class="tk-s">"text"</span>],
+    outputModalities: [<span class="tk-s">"text"</span>],
+    features: extra.features ?? [],
+    limits: {},
+    pricing: extra.pricing,
+    qualityScore: extra.qualityScore,
+    rerank: extra.rerank,
+  };
+};
+
+<span class="tk-k">const</span> catalog = createStaticCapabilityCatalog([
+  reranker(<span class="tk-s">"cohere/rerank-3.5"</span>, { rerank: { maxDocuments: <span class="tk-n">1000</span> }, features: [], pricing: { inputPerMillionTokens: <span class="tk-n">0.1</span> }, qualityScore: <span class="tk-n">0.62</span> }),
+  reranker(<span class="tk-s">"voyage/rerank-2"</span>, { rerank: { maxDocuments: <span class="tk-n">1000</span> }, features: [], pricing: { inputPerMillionTokens: <span class="tk-n">0.05</span> }, qualityScore: <span class="tk-n">0.6</span> }),
+  reranker(<span class="tk-s">"openai/gpt-5"</span>, { rerank: { maxDocuments: <span class="tk-n">100</span> }, features: [<span class="tk-s">"explanations"</span>], pricing: { inputPerMillionTokens: <span class="tk-n">2.5</span> }, qualityScore: <span class="tk-n">0.9</span> }),
+]);
+
+<span class="tk-c">// Offline "relevance": query-term overlap (a real cross-encoder is far better).</span>
+<span class="tk-k">const</span> relevance = (query: string, doc: string) =&gt; {
+  <span class="tk-k">const</span> terms = <span class="tk-k">new</span> <span class="tk-t">Set</span>(query.toLowerCase().split(/\<span class="tk-t">W</span>+/).filter(<span class="tk-t">Boolean</span>));
+  <span class="tk-k">const</span> words = doc.toLowerCase().split(/\<span class="tk-t">W</span>+/);
+  <span class="tk-k">return</span> words.filter((w) =&gt; terms.has(w)).length;
+};
+
+<span class="tk-c">// Dedicated cross-encoders: scores only, no rationale.</span>
+<span class="tk-k">const</span> crossEncoder = (providerId: string) =&gt;
+  createCallbackProviderAdapter({
+    providerId,
+    rerank: ({ query, documents }) =&gt;
+      documents.map((doc, index) =&gt; ({ index, score: relevance(query, doc) })),
+  });
+
+<span class="tk-c">// LLM reranker: scores AND a natural-language reason per result.</span>
+<span class="tk-k">const</span> llmReranker = createCallbackProviderAdapter({
+  providerId: <span class="tk-s">"openai"</span>,
+  rerank: ({ query, documents }) =&gt;
+    documents.map((doc, index) =&gt; {
+      <span class="tk-k">const</span> score = relevance(query, doc);
+      <span class="tk-k">return</span> { index, score, reason: score ? <span class="tk-s">`mentions ${score} of the query terms`</span> : <span class="tk-s">"off-topic"</span> };
+    }),
+});
+
+<span class="tk-k">const</span> router = <span class="tk-k">new</span> <span class="tk-t">ModelRouter</span>({
+  catalog,
+  providers: [crossEncoder(<span class="tk-s">"cohere"</span>), crossEncoder(<span class="tk-s">"voyage"</span>), llmReranker],
+});
+
+<span class="tk-k">const</span> query = <span class="tk-s">"quick chocolate dessert"</span>;
+<span class="tk-k">const</span> documents = [
+  <span class="tk-s">"No-bake chocolate fridge cake, ready fast"</span>,
+  <span class="tk-s">"Slow-braised beef short ribs, three hours"</span>,
+  <span class="tk-s">"Five-minute chocolate mug cake, quick dessert"</span>,
+  <span class="tk-s">"Grilled salmon with lemon"</span>,
+  <span class="tk-s">"Dark chocolate truffles, quick and easy"</span>,
+];
+
+<span class="tk-k">const</span> show = (label: string, results: <span class="tk-k">readonly</span> { index: number; score: number; document: string; reason?: string }[]) =&gt; {
+  console.log(<span class="tk-s">`\n${label}`</span>);
+  <span class="tk-k">for</span> (<span class="tk-k">const</span> r <span class="tk-k">of</span> results) {
+    console.log(<span class="tk-s">`  [${r.score}] ${r.document}${r.reason ? `</span>  — ${r.reason}<span class="tk-s">` : ""}`</span>);
+  }
+};
+
+<span class="tk-c">// 1. Cheapest: routes to a dedicated cross-encoder (Voyage, cheapest). No reasons.</span>
+<span class="tk-k">const</span> plain = <span class="tk-k">await</span> router.rerank({ task: <span class="tk-s">"search.rerank"</span>, query, documents, topK: <span class="tk-n">3</span>, preference: <span class="tk-s">"cheapest"</span> });
+printPlan(plain.plan);
+show(<span class="tk-s">`cheapest -&gt; ${plain.model.providerId}/${plain.model.modelId} (top 3)`</span>, plain.results);
+
+<span class="tk-c">// 2. Need rationales: require "explanations" -&gt; routes to the LLM reranker.</span>
+<span class="tk-k">const</span> explained = <span class="tk-k">await</span> router.rerank({
+  task: <span class="tk-s">"search.rerank"</span>,
+  query,
+  documents,
+  topK: <span class="tk-n">3</span>,
+  requiresFeatures: [<span class="tk-s">"explanations"</span>],
+});
+show(<span class="tk-s">`requiresFeatures: ["explanations"] -&gt; ${explained.model.providerId}/${explained.model.modelId}`</span>, explained.results);
+
+<span class="tk-c">// 3. Fallback is safe (stateless): if the chosen reranker is down, another takes over.</span>
+<span class="tk-k">const</span> flaky = <span class="tk-k">new</span> <span class="tk-t">ModelRouter</span>({
+  catalog,
+  providers: [
+    createCallbackProviderAdapter({ providerId: <span class="tk-s">"voyage"</span>, rerank: () =&gt; { <span class="tk-k">throw</span> <span class="tk-k">new</span> <span class="tk-t">Error</span>(<span class="tk-s">"voyage 503"</span>); } }),
+    crossEncoder(<span class="tk-s">"cohere"</span>),
+    llmReranker,
+  ],
+});
+<span class="tk-k">const</span> recovered = <span class="tk-k">await</span> flaky.rerank({ task: <span class="tk-s">"search.rerank"</span>, query, documents, topK: <span class="tk-n">3</span>, preference: <span class="tk-s">"cheapest"</span> });
+console.log(<span class="tk-s">`\nfallback: served by ${recovered.model.providerId}/${recovered.model.modelId}`</span>);
+printAttempts(recovered.attempts);</code></pre>
     </section>
   </main>
 </div>

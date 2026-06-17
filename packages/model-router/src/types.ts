@@ -13,6 +13,10 @@ export type ModelFeature =
   | "reasoning"
   | "attachments"
   | "web_search"
+  // a reranker can return a natural-language rationale per result (LLM rerankers
+  // can; dedicated cross-encoders cannot). Required via requiresFeatures to route
+  // to a reason-capable reranker — see ModelCapability.rerank.
+  | "explanations"
   // eslint-disable-next-line @typescript-eslint/ban-types
   | (string & {});
 
@@ -47,6 +51,18 @@ export interface ModelCapability {
    * `@swoosh-dev/capabilities` or your own overrides.
    */
   readonly benchmarks?: Readonly<Record<string, number>>;
+  /**
+   * Present iff this model is a reranker (orders documents by relevance to a
+   * query). Its adapter must implement {@link ProviderAdapter.rerank}. Dedicated
+   * cross-encoders (Cohere/Voyage/Jina) return scores only; an LLM-backed
+   * reranker can also return per-result rationales — declare the `"explanations"`
+   * feature for those so requests can route to them.
+   */
+  readonly rerank?: {
+    readonly maxDocuments?: number;
+    readonly maxTokensPerDoc?: number;
+    readonly maxQueryTokens?: number;
+  };
 }
 
 export interface TaskConstraints {
@@ -136,6 +152,15 @@ export interface ProviderAdapter {
   generateImage?<Input>(
     request: ProviderGenerateImageRequest<Input>,
   ): Promise<GeneratedImage>;
+  /**
+   * Score the documents in `request` by relevance to `request.query`. Return a
+   * score per document (by original index); include `reason` only if the model
+   * produces rationales (and declares the `"explanations"` feature). The router
+   * attaches the document text, sorts by score, and applies `topK`.
+   */
+  rerank?<Input>(
+    request: ProviderRerankRequest<Input>,
+  ): Promise<readonly RerankScore[]>;
 }
 
 export interface CapabilityCatalog {
@@ -177,6 +202,54 @@ export interface RouterAttempt {
 
 export interface RouterRunResult<Output> {
   readonly output: Output;
+  readonly plan: RoutePlan;
+  readonly attempts: readonly RouterAttempt[];
+}
+
+/**
+ * Reorder `documents` by relevance to `query`. Mirrors the generation requests:
+ * declare intent (`requiresFeatures`, e.g. `["explanations"]`) and policy
+ * (`preference`, `constraints`); the router filters to reranker models, ranks
+ * them, and falls back automatically. Unlike embeddings, rerankers are
+ * stateless, so cross-model fallback is safe.
+ */
+export interface RerankRequest<Input = unknown> {
+  readonly task: string;
+  readonly query: string;
+  readonly documents: readonly string[];
+  /** Return only the top N results (default: all). */
+  readonly topK?: number;
+  readonly requiresFeatures?: readonly ModelFeature[];
+  readonly preference?: RoutingPreference | RoutingPolicy;
+  readonly constraints?: TaskConstraints;
+  readonly estimatedInputTokens?: number;
+  readonly estimatedOutputTokens?: number;
+  readonly metadata?: Record<string, unknown>;
+  /** Optional extra context for custom policies / adapters. */
+  readonly input?: Input;
+}
+
+export interface ProviderRerankRequest<Input = unknown> extends RerankRequest<Input> {
+  readonly model: ModelCapability;
+}
+
+/** A relevance score for one input document, by its original index. */
+export interface RerankScore {
+  readonly index: number;
+  readonly score: number;
+  /** Natural-language rationale — only from reason-capable (`"explanations"`) rerankers. */
+  readonly reason?: string;
+}
+
+export interface RerankedDocument extends RerankScore {
+  /** The document text at `index`, attached by the router for convenience. */
+  readonly document: string;
+}
+
+export interface RerankResult {
+  /** Documents sorted by descending relevance, capped at `topK`. */
+  readonly results: readonly RerankedDocument[];
+  readonly model: ModelCapability;
   readonly plan: RoutePlan;
   readonly attempts: readonly RouterAttempt[];
 }

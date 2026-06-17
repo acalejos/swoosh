@@ -14,6 +14,8 @@ import {
   type ProviderAdapter,
   type ProviderGenerateObjectRequest,
   type ProviderGenerateTextRequest,
+  type ProviderRerankRequest,
+  type RerankScore,
   type RoutePlan,
   type RoutingPreference,
   type TaskRequest,
@@ -77,10 +79,13 @@ export function fakeCatalog(models: readonly ModelCapability[]): CapabilityCatal
 // ─────────────────────────────────────────────────────── mock providers ──
 
 export interface RecordedCall {
-  readonly method: "generateObject" | "generateText";
+  readonly method: "generateObject" | "generateText" | "rerank";
   readonly providerId: string;
   readonly modelId: string;
-  readonly request: ProviderGenerateObjectRequest | ProviderGenerateTextRequest;
+  readonly request:
+    | ProviderGenerateObjectRequest
+    | ProviderGenerateTextRequest
+    | ProviderRerankRequest;
 }
 
 type Handler<Req, Res> = Res | ((request: Req) => Res | Promise<Res>);
@@ -90,6 +95,7 @@ export interface MockProviderOptions {
   readonly isAvailable?: boolean | (() => boolean);
   readonly generateObject?: Handler<ProviderGenerateObjectRequest, unknown>;
   readonly generateText?: Handler<ProviderGenerateTextRequest, string>;
+  readonly rerank?: Handler<ProviderRerankRequest, readonly RerankScore[]>;
 }
 
 export interface MockProvider extends ProviderAdapter {
@@ -112,7 +118,13 @@ export interface MockProvider extends ProviderAdapter {
 export function mockProvider(providerId: string, opts: MockProviderOptions = {}): MockProvider {
   const calls: RecordedCall[] = [];
   const record =
-    <Req extends ProviderGenerateObjectRequest | ProviderGenerateTextRequest, Res>(
+    <
+      Req extends
+        | ProviderGenerateObjectRequest
+        | ProviderGenerateTextRequest
+        | ProviderRerankRequest,
+      Res,
+    >(
       method: RecordedCall["method"],
       handler: Handler<Req, Res> | undefined,
     ) =>
@@ -136,6 +148,7 @@ export function mockProvider(providerId: string, opts: MockProviderOptions = {})
           : () => opts.isAvailable as boolean,
     generateObject: record("generateObject", opts.generateObject),
     generateText: record("generateText", opts.generateText),
+    rerank: record("rerank", opts.rerank),
   });
 
   return Object.assign(base, {

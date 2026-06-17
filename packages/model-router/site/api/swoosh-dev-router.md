@@ -226,7 +226,7 @@ type LatencyClass = "fast" | "standard" | "slow";
  * values are typed for autocomplete, but the set is open — providers and
  * catalogs may surface their own (e.g. "prompt_caching", "json_mode").
  */
-type ModelFeature = "structured_output" | "tools" | "reasoning" | "attachments" | "web_search" | (string & {});
+type ModelFeature = "structured_output" | "tools" | "reasoning" | "attachments" | "web_search" | "explanations" | (string & {});
 interface ModelPricing {
     readonly inputPerMillionTokens?: number;
     readonly outputPerMillionTokens?: number;
@@ -256,6 +256,18 @@ interface ModelCapability {
      * `@swoosh-dev/capabilities` or your own overrides.
      */
     readonly benchmarks?: Readonly<Record<string, number>>;
+    /**
+     * Present iff this model is a reranker (orders documents by relevance to a
+     * query). Its adapter must implement {@link ProviderAdapter.rerank}. Dedicated
+     * cross-encoders (Cohere/Voyage/Jina) return scores only; an LLM-backed
+     * reranker can also return per-result rationales — declare the `"explanations"`
+     * feature for those so requests can route to them.
+     */
+    readonly rerank?: {
+        readonly maxDocuments?: number;
+        readonly maxTokensPerDoc?: number;
+        readonly maxQueryTokens?: number;
+    };
 }
 interface TaskConstraints {
     readonly maxCostUsd?: number;
@@ -327,6 +339,13 @@ interface ProviderAdapter {
     generateObject?<Input, Output>(request: ProviderGenerateObjectRequest<Input>): Promise<Output>;
     generateText?<Input>(request: ProviderGenerateTextRequest<Input>): Promise<string>;
     generateImage?<Input>(request: ProviderGenerateImageRequest<Input>): Promise<GeneratedImage>;
+    /**
+     * Score the documents in `request` by relevance to `request.query`. Return a
+     * score per document (by original index); include `reason` only if the model
+     * produces rationales (and declares the `"explanations"` feature). The router
+     * attaches the document text, sorts by score, and applies `topK`.
+     */
+    rerank?<Input>(request: ProviderRerankRequest<Input>): Promise<readonly RerankScore[]>;
 }
 interface CapabilityCatalog {
     listCapabilities(): Promise<readonly ModelCapability[]>;
@@ -362,6 +381,49 @@ interface RouterAttempt {
 }
 interface RouterRunResult<Output> {
     readonly output: Output;
+    readonly plan: RoutePlan;
+    readonly attempts: readonly RouterAttempt[];
+}
+/**
+ * Reorder `documents` by relevance to `query`. Mirrors the generation requests:
+ * declare intent (`requiresFeatures`, e.g. `["explanations"]`) and policy
+ * (`preference`, `constraints`); the router filters to reranker models, ranks
+ * them, and falls back automatically. Unlike embeddings, rerankers are
+ * stateless, so cross-model fallback is safe.
+ */
+interface RerankRequest<Input = unknown> {
+    readonly task: string;
+    readonly query: string;
+    readonly documents: readonly string[];
+    /** Return only the top N results (default: all). */
+    readonly topK?: number;
+    readonly requiresFeatures?: readonly ModelFeature[];
+    readonly preference?: RoutingPreference | RoutingPolicy;
+    readonly constraints?: TaskConstraints;
+    readonly estimatedInputTokens?: number;
+    readonly estimatedOutputTokens?: number;
+    readonly metadata?: Record<string, unknown>;
+    /** Optional extra context for custom policies / adapters. */
+    readonly input?: Input;
+}
+interface ProviderRerankRequest<Input = unknown> extends RerankRequest<Input> {
+    readonly model: ModelCapability;
+}
+/** A relevance score for one input document, by its original index. */
+interface RerankScore {
+    readonly index: number;
+    readonly score: number;
+    /** Natural-language rationale — only from reason-capable (`"explanations"`) rerankers. */
+    readonly reason?: string;
+}
+interface RerankedDocument extends RerankScore {
+    /** The document text at `index`, attached by the router for convenience. */
+    readonly document: string;
+}
+interface RerankResult {
+    /** Documents sorted by descending relevance, capped at `topK`. */
+    readonly results: readonly RerankedDocument[];
+    readonly model: ModelCapability;
     readonly plan: RoutePlan;
     readonly attempts: readonly RouterAttempt[];
 }
@@ -505,6 +567,23 @@ declare class ModelRouter {
     private readonly providers;
     constructor(options: ModelRouterOptions);
     plan<Input>(request: TaskRequest<Input>): Promise<RoutePlan>;
+    /** Shared tail of {@link plan} / {@link planRerank}: rank the surviving
+     *  candidates by preference (or a custom policy) and assemble the RoutePlan. */
+    private finalizePlan;
+    /**
+     * Plan a rerank: filter the catalog to reranker models (a `rerank` capability
+     * + an adapter that implements `rerank`) satisfying `requiresFeatures` (e.g.
+     * `["explanations"]`) and constraints, then rank by preference. Inspectable
+     * like {@link plan} — every rejected model carries a reason.
+     */
+    planRerank<Input>(request: RerankRequest<Input>): Promise<RoutePlan>;
+    /**
+     * Rerank `request.documents` by relevance to `request.query`, routing to the
+     * best reranker and falling back automatically. The result's documents are
+     * sorted by descending score and capped at `topK`; `reason` is populated only
+     * when the chosen reranker supports `"explanations"`.
+     */
+    rerank<Input>(request: RerankRequest<Input>): Promise<RerankResult>;
     /**
      * Generate from the best-routed model. The kind of output is inferred from
      * the request, not the method name:
@@ -572,6 +651,7 @@ interface CallbackProviderOptions {
     readonly generateObject?: (request: ProviderGenerateObjectRequest) => unknown;
     readonly generateText?: (request: ProviderGenerateTextRequest) => Promise<string> | string;
     readonly generateImage?: (request: ProviderGenerateImageRequest) => Promise<GeneratedImage> | GeneratedImage;
+    readonly rerank?: (request: ProviderRerankRequest) => Promise<readonly RerankScore[]> | readonly RerankScore[];
 }
 declare const createCallbackProviderAdapter: (options: CallbackProviderOptions) => ProviderAdapter;
 
@@ -609,5 +689,5 @@ declare const apiKeyEnvVarsFor: (providerId: string) => readonly string[];
  */
 declare const hasApiKey: (providerId: string, options?: HasApiKeyOptions) => boolean;
 
-export { type ByBenchmarkOptions, type CallbackProviderOptions, type CapabilityCatalog, type CapabilityOverride, type GenerateImageRequest, type GenerateObjectRequest, type GenerateRequest, type GenerateTextRequest, type GeneratedImage, type HasApiKeyOptions, type LatencyClass, type LoadBalanceOptions, type LoadBalanceStrategy, type ModelCapability, type ModelFeature, type ModelLimits, type ModelModality, type ModelPricing, ModelRouter, ModelRouterError, type ModelRouterOptions, ModelsDevCapabilityCatalog, type ProviderAdapter, type ProviderGenerateImageRequest, type ProviderGenerateObjectRequest, type ProviderGenerateTextRequest, type RankedModel, type RejectedModel, type RoutePlan, type RouterAttempt, type RouterRunResult, type RoutingPolicy, type RoutingPolicyContext, type RoutingPreference, SchemaValidationError, StaticCapabilityCatalog, type TaskConstraints, type TaskRequest, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, createCallbackProviderAdapter, createCapabilityCatalog, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, qualityScore, roundRobin, validateAgainstJsonSchema };
+export { type ByBenchmarkOptions, type CallbackProviderOptions, type CapabilityCatalog, type CapabilityOverride, type GenerateImageRequest, type GenerateObjectRequest, type GenerateRequest, type GenerateTextRequest, type GeneratedImage, type HasApiKeyOptions, type LatencyClass, type LoadBalanceOptions, type LoadBalanceStrategy, type ModelCapability, type ModelFeature, type ModelLimits, type ModelModality, type ModelPricing, ModelRouter, ModelRouterError, type ModelRouterOptions, ModelsDevCapabilityCatalog, type ProviderAdapter, type ProviderGenerateImageRequest, type ProviderGenerateObjectRequest, type ProviderGenerateTextRequest, type ProviderRerankRequest, type RankedModel, type RejectedModel, type RerankRequest, type RerankResult, type RerankScore, type RerankedDocument, type RoutePlan, type RouterAttempt, type RouterRunResult, type RoutingPolicy, type RoutingPolicyContext, type RoutingPreference, SchemaValidationError, StaticCapabilityCatalog, type TaskConstraints, type TaskRequest, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, createCallbackProviderAdapter, createCapabilityCatalog, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, qualityScore, roundRobin, validateAgainstJsonSchema };
 ```

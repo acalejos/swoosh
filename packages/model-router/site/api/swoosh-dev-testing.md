@@ -87,7 +87,7 @@ const { output, attempts } = await router.runText({
 Generated from source — the authoritative public API.
 
 ```ts
-import { ModelModality, ModelFeature, LatencyClass, RoutePlan, ProviderAdapter, ProviderGenerateObjectRequest, ProviderGenerateTextRequest, ModelRouter, TaskRequest, ModelCapability, RoutingPreference, CapabilityCatalog } from '@swoosh-dev/router';
+import { ModelModality, ModelFeature, LatencyClass, RoutePlan, ProviderAdapter, ProviderGenerateObjectRequest, ProviderGenerateTextRequest, ProviderRerankRequest, RerankScore, ModelRouter, TaskRequest, ModelCapability, RoutingPreference, CapabilityCatalog } from '@swoosh-dev/router';
 
 /** Friendly, defaulted options for {@link model} — specify only what the test cares about. */
 interface FakeModelOptions {
@@ -119,10 +119,10 @@ declare function model(id: string, opts?: FakeModelOptions): ModelCapability;
 /** A static {@link CapabilityCatalog} over the given fake models. */
 declare function fakeCatalog(models: readonly ModelCapability[]): CapabilityCatalog;
 interface RecordedCall {
-    readonly method: "generateObject" | "generateText";
+    readonly method: "generateObject" | "generateText" | "rerank";
     readonly providerId: string;
     readonly modelId: string;
-    readonly request: ProviderGenerateObjectRequest | ProviderGenerateTextRequest;
+    readonly request: ProviderGenerateObjectRequest | ProviderGenerateTextRequest | ProviderRerankRequest;
 }
 type Handler<Req, Res> = Res | ((request: Req) => Res | Promise<Res>);
 interface MockProviderOptions {
@@ -130,6 +130,7 @@ interface MockProviderOptions {
     readonly isAvailable?: boolean | (() => boolean);
     readonly generateObject?: Handler<ProviderGenerateObjectRequest, unknown>;
     readonly generateText?: Handler<ProviderGenerateTextRequest, string>;
+    readonly rerank?: Handler<ProviderRerankRequest, readonly RerankScore[]>;
 }
 interface MockProvider extends ProviderAdapter {
     /** Every call the router made to this provider, in order. */
