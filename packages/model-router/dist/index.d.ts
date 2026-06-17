@@ -412,6 +412,37 @@ declare const loadBalance: (base: RoutingPreference | RoutingPolicy, options?: L
  *     });
  */
 declare const roundRobin: <T>(items: readonly T[]) => (() => T);
+interface HealthTrackerOptions {
+    /** How long a route stays cooled-down after tripping (ms). Default 30s. */
+    readonly cooldownMs?: number;
+    /** Consecutive failures before a route cools down. Default 1. */
+    readonly failuresBeforeCooldown?: number;
+}
+interface HealthTracker {
+    /** Feed the attempts from a run result; failures trip cooldowns, a success clears them. */
+    record(attempts: readonly RouterAttempt[]): void;
+    isCoolingDown(providerId: string, modelId: string): boolean;
+    reset(): void;
+}
+/**
+ * Tracks per-route (`providerId/modelId`) failures and cooldowns from run
+ * attempts — the lean, in-process half of LiteLLM-style health routing (no
+ * server, no DB). Pair with {@link healthAware}; feed it `result.attempts` after
+ * each run (the router already returns them):
+ *
+ *     const health = createHealthTracker({ cooldownMs: 60_000 });
+ *     const policy = healthAware("cheapest", health);
+ *     const res = await router.run({ ...request, preference: policy });
+ *     health.record(res.attempts); // 429/5xx → that route is benched for 60s
+ */
+declare const createHealthTracker: (options?: HealthTrackerOptions) => HealthTracker;
+/**
+ * Wrap a base preference/policy to route around cooling-down deployments: ranks
+ * with the base, then moves any route currently in cooldown to the back (kept as
+ * last-resort fallbacks, never dropped — so an all-cooling-down catalog still
+ * resolves). Stateful via the shared {@link HealthTracker}.
+ */
+declare const healthAware: (base: RoutingPreference | RoutingPolicy, tracker: HealthTracker) => RoutingPolicy;
 
 interface ModelRouterOptions {
     readonly catalog: CapabilityCatalog;
@@ -581,4 +612,4 @@ declare const apiKeyEnvVarsFor: (providerId: string) => readonly string[];
  */
 declare const hasApiKey: (providerId: string, options?: HasApiKeyOptions) => boolean;
 
-export { type BenchmarkScores, type BenchmarkSource, type ByBenchmarkOptions, type ByCoverageOptions, type CallbackProviderOptions, type CapabilityCatalog, type CapabilityOverride, type GenerateImageRequest, type GenerateObjectRequest, type GenerateRequest, type GenerateTextRequest, type GeneratedImage, type HasApiKeyOptions, type ImageInput, type ImagePart, type LatencyClass, type LlmRerankerOptions, type LoadBalanceOptions, type LoadBalanceStrategy, type ModelCapability, type ModelFeature, type ModelLimits, type ModelModality, type ModelPricing, ModelRouter, ModelRouterError, type ModelRouterOptions, ModelsDevCapabilityCatalog, type ProviderAdapter, type ProviderGenerateImageRequest, type ProviderGenerateObjectRequest, type ProviderGenerateTextRequest, type ProviderRerankRequest, type RankedModel, type RejectedModel, type RerankRequest, type RerankResult, type RerankScore, type RerankedDocument, type RoutePlan, type RouterAttempt, type RouterRunResult, type RoutingPolicy, type RoutingPolicyContext, type RoutingPreference, SchemaValidationError, StaticCapabilityCatalog, type StickyOptions, type TaskConstraints, type TaskRequest, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, byCoverage, createCallbackProviderAdapter, createCapabilityCatalog, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, llmReranker, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, pin, qualityCap, qualityScore, roundRobin, sticky, validateAgainstJsonSchema };
+export { type BenchmarkScores, type BenchmarkSource, type ByBenchmarkOptions, type ByCoverageOptions, type CallbackProviderOptions, type CapabilityCatalog, type CapabilityOverride, type GenerateImageRequest, type GenerateObjectRequest, type GenerateRequest, type GenerateTextRequest, type GeneratedImage, type HasApiKeyOptions, type HealthTracker, type HealthTrackerOptions, type ImageInput, type ImagePart, type LatencyClass, type LlmRerankerOptions, type LoadBalanceOptions, type LoadBalanceStrategy, type ModelCapability, type ModelFeature, type ModelLimits, type ModelModality, type ModelPricing, ModelRouter, ModelRouterError, type ModelRouterOptions, ModelsDevCapabilityCatalog, type ProviderAdapter, type ProviderGenerateImageRequest, type ProviderGenerateObjectRequest, type ProviderGenerateTextRequest, type ProviderRerankRequest, type RankedModel, type RejectedModel, type RerankRequest, type RerankResult, type RerankScore, type RerankedDocument, type RoutePlan, type RouterAttempt, type RouterRunResult, type RoutingPolicy, type RoutingPolicyContext, type RoutingPreference, SchemaValidationError, StaticCapabilityCatalog, type StickyOptions, type TaskConstraints, type TaskRequest, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, byCoverage, createCallbackProviderAdapter, createCapabilityCatalog, createHealthTracker, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, healthAware, llmReranker, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, pin, qualityCap, qualityScore, roundRobin, sticky, validateAgainstJsonSchema };

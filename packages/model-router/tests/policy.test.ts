@@ -4,7 +4,9 @@ import {
   byBenchmark,
   byCoverage,
   createCallbackProviderAdapter,
+  createHealthTracker,
   createStaticCapabilityCatalog,
+  healthAware,
   pin,
   qualityCap,
   sticky,
@@ -107,6 +109,16 @@ test("requiresAnyFeatures is an OR filter that composes with requiresFeatures (A
   expect(ids).toEqual(["a", "b"]);
   expect(plan.rejected.find((x) => x.modelId === "c")?.reason).toContain("Has none of the features");
   expect(plan.rejected.find((x) => x.modelId === "d")?.reason).toContain("Missing required feature");
+});
+
+test("healthAware() benches a failed route until a success clears it", async () => {
+  const tracker = createHealthTracker({ cooldownMs: 60_000 });
+  const policy = healthAware("cheapest", tracker); // c (0.1) < b (1) < a (10)
+  expect((await router.plan(req(policy))).selected.capability.modelId).toBe("c");
+  tracker.record([{ providerId: "p", modelId: "c", ok: false, error: "429" }]);
+  expect((await router.plan(req(policy))).selected.capability.modelId).toBe("b"); // c benched
+  tracker.record([{ providerId: "p", modelId: "c", ok: true }]);
+  expect((await router.plan(req(policy))).selected.capability.modelId).toBe("c"); // back in rotation
 });
 
 test("sticky() keeps the warm model unless a challenger beats it by margin", async () => {

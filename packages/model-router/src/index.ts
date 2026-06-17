@@ -61,8 +61,12 @@ export {
   type StickyOptions,
 } from "./policy";
 export {
+  createHealthTracker,
+  healthAware,
   loadBalance,
   roundRobin,
+  type HealthTracker,
+  type HealthTrackerOptions,
   type LoadBalanceOptions,
   type LoadBalanceStrategy,
 } from "./balance";

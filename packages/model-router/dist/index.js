@@ -251,6 +251,44 @@ var roundRobin = (items) => {
     return item;
   };
 };
+var createHealthTracker = (options = {}) => {
+  const cooldownMs = options.cooldownMs ?? 3e4;
+  const threshold = options.failuresBeforeCooldown ?? 1;
+  const state = /* @__PURE__ */ new Map();
+  return {
+    record(attempts) {
+      const now = Date.now();
+      for (const a of attempts) {
+        const key = `${a.providerId}/${a.modelId}`;
+        if (a.ok) {
+          state.set(key, { failures: 0, until: 0 });
+        } else {
+          const prev = state.get(key) ?? { failures: 0, until: 0 };
+          const failures = prev.failures + 1;
+          state.set(key, { failures, until: failures >= threshold ? now + cooldownMs : prev.until });
+        }
+      }
+    },
+    isCoolingDown(providerId, modelId) {
+      const s = state.get(`${providerId}/${modelId}`);
+      return s !== void 0 && s.until > Date.now();
+    },
+    reset() {
+      state.clear();
+    }
+  };
+};
+var healthAware = (base, tracker) => {
+  return async (context) => {
+    const ranked = await resolveBase(base, context);
+    const healthy = [];
+    const cooling = [];
+    for (const r of ranked) {
+      (tracker.isCoolingDown(r.capability.providerId, r.capability.modelId) ? cooling : healthy).push(r);
+    }
+    return [...healthy, ...cooling];
+  };
+};
 
 // src/schema.ts
 var isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
@@ -821,4 +859,4 @@ var hasApiKey = (providerId, options = {}) => {
   });
 };
 
-export { ModelRouter, ModelRouterError, ModelsDevCapabilityCatalog, SchemaValidationError, StaticCapabilityCatalog, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, byCoverage, createCallbackProviderAdapter, createCapabilityCatalog, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, llmReranker, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, pin, qualityCap, qualityScore, roundRobin, sticky, validateAgainstJsonSchema };
+export { ModelRouter, ModelRouterError, ModelsDevCapabilityCatalog, SchemaValidationError, StaticCapabilityCatalog, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, byCoverage, createCallbackProviderAdapter, createCapabilityCatalog, createHealthTracker, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, healthAware, llmReranker, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, pin, qualityCap, qualityScore, roundRobin, sticky, validateAgainstJsonSchema };
