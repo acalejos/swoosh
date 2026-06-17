@@ -19,7 +19,12 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean --treeshake"
+    "build": "tsup src/index.ts --format esm --dts --clean --treeshake",
+    "prepare": "tsup src/index.ts --format esm --dts --clean --treeshake"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.6.0"
   },
   "repository": {
     "type": "git",
