@@ -824,6 +824,51 @@ var llmReranker = (options) => async (request) => {
   return request.documents.map((_, index) => byIndex.get(index) ?? { index, score: 0 });
 };
 
+// src/session.ts
+var asPolicy = (base) => typeof base === "function" ? base : namedPolicy(base);
+var idOf = (providerId, modelId) => `${providerId}/${modelId}`;
+var createSession = (options = {}) => {
+  const stickyOptions = typeof options.sticky === "object" ? options.sticky : {};
+  const useSticky = options.sticky !== void 0 && options.sticky !== false;
+  let spent = 0;
+  let warm;
+  const overBudget = () => options.budgetUsd !== void 0 && spent >= options.budgetUsd;
+  return {
+    preference(base) {
+      if (overBudget()) {
+        if (options.onBudgetExceeded === "throw") {
+          return () => {
+            throw new ModelRouterError(
+              `Session budget of $${options.budgetUsd} is exhausted ($${spent.toFixed(4)} spent).`
+            );
+          };
+        }
+        return options.health ? healthAware("cheapest", options.health) : namedPolicy("cheapest");
+      }
+      let policy = options.health ? healthAware(base, options.health) : asPolicy(base);
+      if (useSticky) policy = sticky(warm, policy, stickyOptions);
+      return policy;
+    },
+    record(result) {
+      options.health?.record(result.attempts ?? []);
+      spent += result.plan.estimate.costUsd ?? 0;
+      const served = [...result.attempts ?? []].reverse().find((a) => a.ok);
+      warm = served ? idOf(served.providerId, served.modelId) : idOf(result.plan.selected.capability.providerId, result.plan.selected.capability.modelId);
+    },
+    get spent() {
+      return spent;
+    },
+    get remaining() {
+      return options.budgetUsd === void 0 ? Infinity : Math.max(0, options.budgetUsd - spent);
+    },
+    reset() {
+      spent = 0;
+      warm = void 0;
+      options.health?.reset();
+    }
+  };
+};
+
 // src/adapters.ts
 var createCallbackProviderAdapter = (options) => ({
   providerId: options.providerId,
@@ -864,4 +909,4 @@ var hasApiKey = (providerId, options = {}) => {
   });
 };
 
-export { ModelRouter, ModelRouterError, ModelsDevCapabilityCatalog, SchemaValidationError, StaticCapabilityCatalog, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, byCoverage, createCallbackProviderAdapter, createCapabilityCatalog, createHealthTracker, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, healthAware, llmReranker, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, pin, qualityCap, qualityScore, roundRobin, sticky, validateAgainstJsonSchema };
+export { ModelRouter, ModelRouterError, ModelsDevCapabilityCatalog, SchemaValidationError, StaticCapabilityCatalog, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, byCoverage, createCallbackProviderAdapter, createCapabilityCatalog, createHealthTracker, createSession, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, healthAware, llmReranker, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, pin, qualityCap, qualityScore, roundRobin, sticky, validateAgainstJsonSchema };

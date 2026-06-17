@@ -655,6 +655,19 @@ createAiSdkProviderAdapter({
 
 <span class="tk-k">const</span> res = <span class="tk-k">await</span> router.run({ ...request, preference: policy });
 health.record(res.attempts);  <span class="tk-c">// a 429 benches that route for 60s</span></code></pre>
+      <h3>Sessions <span class="pill">stateful glue</span></h3>
+      <p>Health, sticky, and budget are <em>stateful</em> — they need memory across calls. A <code>Session</code> is the thin container that holds that state and wires the feedback loop for you, instead of threading it by hand. It reads only the generic plan + attempts, so it composes with any routing (models, connectors, subagents) — not a model-only feature.</p>
+      <pre><code><span class="tk-k">import</span> { createSession, createHealthTracker } <span class="tk-k">from</span> <span class="tk-s">"@swoosh-dev/router"</span>;
+
+<span class="tk-k">const</span> session = createSession({
+  health: createHealthTracker(),
+  budgetUsd: <span class="tk-n">5</span>,        <span class="tk-c">// downgrades to cheapest when spent (or "throw")</span>
+  sticky: <span class="tk-k">true</span>,        <span class="tk-c">// prefer the warm model</span>
+});
+
+<span class="tk-k">const</span> res = <span class="tk-k">await</span> router.run({ ...request, preference: session.preference(<span class="tk-s">"balanced"</span>) });
+session.record(res);     <span class="tk-c">// updates health, spend, warm model</span>
+session.remaining;       <span class="tk-c">// budget left</span></code></pre>
       <div class="note"><b>Lean by design.</b> These are the LiteLLM pieces worth having — fallback, retry, cooldown, key rotation — as composable functions, not a proxy. No gateway, virtual keys, or spend DB; swoosh stays an embeddable library.</div>
     </section>
 

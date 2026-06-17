@@ -560,6 +560,44 @@ interface LlmRerankerOptions {
  */
 declare const llmReranker: (options: LlmRerankerOptions) => (request: ProviderRerankRequest) => Promise<readonly RerankScore[]>;
 
+interface SessionOptions {
+    /** Cooldown/health tracker — fed each result; routing then avoids cooling-down routes. */
+    readonly health?: HealthTracker;
+    /** Prefer the warm (last-served) candidate to preserve its prompt-prefix cache. */
+    readonly sticky?: boolean | StickyOptions;
+    /** Cap total cost across the session (uses each plan's cost estimate). */
+    readonly budgetUsd?: number;
+    /** Once the budget is spent: downgrade to `"cheapest"` (default) or `"throw"`. */
+    readonly onBudgetExceeded?: "cheapest" | "throw";
+}
+/** A result to feed back — anything carrying a plan and (optionally) the run attempts. */
+interface SessionResult {
+    readonly plan: RoutePlan;
+    readonly attempts?: readonly RouterAttempt[];
+}
+interface Session {
+    /** Wrap a base preference with the session's stateful policies (health → sticky, or budget override). */
+    preference(base: RoutingPreference | RoutingPolicy): RoutingPolicy;
+    /** Feed a result back: updates health (attempts), spend (estimate), and the warm candidate. */
+    record(result: SessionResult): void;
+    readonly spent: number;
+    readonly remaining: number;
+    reset(): void;
+}
+/**
+ * A per-run / per-conversation state container over the (stateless) router — the
+ * natural home for the stateful pieces (health, sticky, budget). It auto-wires
+ * the feedback loop you'd otherwise thread by hand:
+ *
+ *     const session = createSession({ health: createHealthTracker(), budgetUsd: 5, sticky: true });
+ *     const res = await router.run({ ...request, preference: session.preference("balanced") });
+ *     session.record(res);   // updates health, spend, and the warm model
+ *     session.remaining;     // budget left
+ *
+ * Opt into only what you need; with no options it's a no-op passthrough.
+ */
+declare const createSession: (options?: SessionOptions) => Session;
+
 /**
  * A tiny, dependency-free validator for the common subset of JSON Schema that
  * structured-output requests use. It is intentionally NOT a full JSON Schema
@@ -629,4 +667,4 @@ declare const apiKeyEnvVarsFor: (providerId: string) => readonly string[];
  */
 declare const hasApiKey: (providerId: string, options?: HasApiKeyOptions) => boolean;
 
-export { type BenchmarkScores, type BenchmarkSource, type ByBenchmarkOptions, type ByCoverageOptions, type CallbackProviderOptions, type CapabilityCatalog, type CapabilityOverride, type GenerateImageRequest, type GenerateObjectRequest, type GenerateRequest, type GenerateTextRequest, type GeneratedImage, type HasApiKeyOptions, type HealthTracker, type HealthTrackerOptions, type ImageInput, type ImagePart, type LatencyClass, type LlmRerankerOptions, type LoadBalanceOptions, type LoadBalanceStrategy, type ModelCapability, type ModelFeature, type ModelLimits, type ModelModality, type ModelPricing, ModelRouter, ModelRouterError, type ModelRouterOptions, ModelsDevCapabilityCatalog, type ProviderAdapter, type ProviderGenerateImageRequest, type ProviderGenerateObjectRequest, type ProviderGenerateTextRequest, type ProviderRerankRequest, type RankedModel, type RejectedModel, type RerankRequest, type RerankResult, type RerankScore, type RerankedDocument, type RetryOptions, type RoutePlan, type RouterAttempt, type RouterRunResult, type RoutingPolicy, type RoutingPolicyContext, type RoutingPreference, SchemaValidationError, StaticCapabilityCatalog, type StickyOptions, type TaskConstraints, type TaskRequest, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, byCoverage, createCallbackProviderAdapter, createCapabilityCatalog, createHealthTracker, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, healthAware, llmReranker, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, pin, qualityCap, qualityScore, roundRobin, sticky, validateAgainstJsonSchema };
+export { type BenchmarkScores, type BenchmarkSource, type ByBenchmarkOptions, type ByCoverageOptions, type CallbackProviderOptions, type CapabilityCatalog, type CapabilityOverride, type GenerateImageRequest, type GenerateObjectRequest, type GenerateRequest, type GenerateTextRequest, type GeneratedImage, type HasApiKeyOptions, type HealthTracker, type HealthTrackerOptions, type ImageInput, type ImagePart, type LatencyClass, type LlmRerankerOptions, type LoadBalanceOptions, type LoadBalanceStrategy, type ModelCapability, type ModelFeature, type ModelLimits, type ModelModality, type ModelPricing, ModelRouter, ModelRouterError, type ModelRouterOptions, ModelsDevCapabilityCatalog, type ProviderAdapter, type ProviderGenerateImageRequest, type ProviderGenerateObjectRequest, type ProviderGenerateTextRequest, type ProviderRerankRequest, type RankedModel, type RejectedModel, type RerankRequest, type RerankResult, type RerankScore, type RerankedDocument, type RetryOptions, type RoutePlan, type RouterAttempt, type RouterRunResult, type RoutingPolicy, type RoutingPolicyContext, type RoutingPreference, SchemaValidationError, type Session, type SessionOptions, type SessionResult, StaticCapabilityCatalog, type StickyOptions, type TaskConstraints, type TaskRequest, apiKeyEnvVars, apiKeyEnvVarsFor, byBenchmark, byCoverage, createCallbackProviderAdapter, createCapabilityCatalog, createHealthTracker, createSession, createStaticCapabilityCatalog, estimatedCostUsd, filterCapabilityCatalog, hasApiKey, healthAware, llmReranker, loadBalance, looksLikeJsonSchema, mergeCapabilities, namedPolicy, normalizeModelsDevCatalog, pin, qualityCap, qualityScore, roundRobin, sticky, validateAgainstJsonSchema };

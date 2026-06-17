@@ -42,7 +42,10 @@ Lining up real instances surfaced five axes a resolver must let the domain set:
    live signals: rotation cursors (`roundRobin`/`loadBalance`), warm-cache identity
    (`sticky`), in-flight counts (least-busy), recent TPM/RPM, error cooldowns.
    The policy is a closure, not a pure function — this is what makes LiteLLM-style
-   balancing fit without a server (see below).
+   balancing fit without a server (see below). The cross-call state lives in a
+   **candidate-agnostic `Session`** (`createSession`) that reads only
+   `RoutePlan` + attempts (`preference()` to apply, `record()` to update) — so the
+   stateful glue doesn't couple the kernel to models; it composes with any instance.
 
 ## Instances (proof the engine generalizes)
 

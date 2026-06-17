@@ -73,6 +73,12 @@ export {
 } from "./balance";
 export { ModelRouter, type ModelRouterOptions } from "./router";
 export { llmReranker, type LlmRerankerOptions } from "./rerank";
+export {
+  createSession,
+  type Session,
+  type SessionOptions,
+  type SessionResult,
+} from "./session";
 export { looksLikeJsonSchema, validateAgainstJsonSchema } from "./schema";
 export {
   createCallbackProviderAdapter,
